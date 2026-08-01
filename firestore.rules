@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Public, read-only data: everyone visiting the site can read scores,
+    // schedule, standings and gallery entries. Only signed-in admins
+    // (created via Firebase Authentication) can write.
+    match /scores/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /schedule/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /standings/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /gallery/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Everything else is locked down by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

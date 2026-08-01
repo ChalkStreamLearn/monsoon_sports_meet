@@ -1,0 +1,20 @@
+# Never commit your Firebase service account credentials
+admin/serviceAccountKey.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node (if you ever add tooling)
+node_modules/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Firebase local emulator/cache
+.firebase/
+firebase-debug.log
+firestore-debug.log
