@@ -52,12 +52,12 @@ from firebase_admin import credentials, firestore
 ADMIN_DIR = Path(__file__).parent
 SERVICE_ACCOUNT_PATH = ADMIN_DIR / "serviceAccountKey.json"
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "chalkstream")
+ADMIN_PASSWORD = st.secrets.get("ADMIN_PASSWORD", os.environ.get("ADMIN_PASSWORD", "chalkstream"))
 
-CLOUDINARY_CLOUD_NAME = os.environ.get("CLOUDINARY_CLOUD_NAME", "cogtmcsv")
-CLOUDINARY_UPLOAD_PRESET = os.environ.get("CLOUDINARY_UPLOAD_PRESET", "chalkstream_media")
-CLOUDINARY_API_KEY = os.environ.get("CLOUDINARY_API_KEY")
-CLOUDINARY_API_SECRET = os.environ.get("CLOUDINARY_API_SECRET")
+CLOUDINARY_CLOUD_NAME = st.secrets.get("CLOUDINARY_CLOUD_NAME", os.environ.get("CLOUDINARY_CLOUD_NAME", "cogtmcsv"))
+CLOUDINARY_UPLOAD_PRESET = st.secrets.get("CLOUDINARY_UPLOAD_PRESET", os.environ.get("CLOUDINARY_UPLOAD_PRESET", "chalkstream_media"))
+CLOUDINARY_API_KEY = st.secrets.get("CLOUDINARY_API_KEY", os.environ.get("CLOUDINARY_API_KEY"))
+CLOUDINARY_API_SECRET = st.secrets.get("CLOUDINARY_API_SECRET", os.environ.get("CLOUDINARY_API_SECRET"))
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 VIDEO_EXTS = {".mp4", ".webm", ".mov", ".m4v"}
@@ -71,16 +71,20 @@ st.set_page_config(page_title="ChalkStream Admin", page_icon="🏐", layout="cen
 # ---------- Firebase init ----------
 @st.cache_resource
 def init_firebase():
-    if not SERVICE_ACCOUNT_PATH.exists():
-        st.error(
-            "serviceAccountKey.json not found in admin/. "
-            "Download it from Firebase Console → Project Settings → "
-            "Service Accounts, and place it next to admin.py."
-        )
-        st.stop()
-
     if not firebase_admin._apps:
-        cred = credentials.Certificate(str(SERVICE_ACCOUNT_PATH))
+        if "firebase_service_account" in st.secrets:
+            # Streamlit Community Cloud: paste the JSON key's contents into
+            # Settings → Secrets as a [firebase_service_account] TOML table.
+            cred = credentials.Certificate(dict(st.secrets["firebase_service_account"]))
+        elif SERVICE_ACCOUNT_PATH.exists():
+            cred = credentials.Certificate(str(SERVICE_ACCOUNT_PATH))
+        else:
+            st.error(
+                "No Firebase credentials found. Locally: place serviceAccountKey.json "
+                "in admin/. On Streamlit Cloud: add a [firebase_service_account] table "
+                "in Settings → Secrets."
+            )
+            st.stop()
         firebase_admin.initialize_app(cred)
 
     return firestore.client()
