@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="ChalkStream — Monsoon Games 2026. Live scores, schedule, gallery & commentary for Grade 9 school sports.">
+<meta name="theme-color" content="#16241c">
+<title>ChalkStream · Monsoon Games 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Padauk:wght@400;700&family=Permanent+Marker&family=Noto+Sans+SC:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --board-dark:#121c16;
+    --board:#1a2b22;
+    --board-light:#24362c;
+    --board-mid:#1e3228;
+    --chalk:#f2efe6;
+    --chalk-dim:#bdb9ab;
+    --chalk-mute:#8a8678;
+    --chalk-yellow:#ecc94b;
+    --chalk-yellow-dim:rgba(236,201,75,0.15);
+    --rain-blue:#7fb3c0;
+    --rain-blue-dim:rgba(127,179,192,0.12);
+    --court-red:#c45a48;
+    --court-red-dim:rgba(196,90,72,0.18);
+    --line:rgba(242,239,230,0.12);
+    --line-strong:rgba(242,239,230,0.22);
+    --radius:12px;
+    --radius-sm:8px;
+    --shadow:0 8px 32px rgba(0,0,0,0.35);
+    --ease:cubic-bezier(0.22,1,0.36,1);
+  }
+
+  *,*::before,*::after{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *,*::before,*::after{
+      animation-duration:0.01ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:0.01ms !important;
+    }
+  }
+
+  body{
+    margin:0;
+    background:var(--board-dark);
+    color:var(--chalk);
+    font-family:'Padauk','Noto Sans SC',system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(127,179,192,0.06), transparent),
+      radial-gradient(ellipse 60% 40% at 90% 100%, rgba(236,201,75,0.04), transparent);
+    min-height:100vh;
+  }
+
+  /* chalk dust grain */
+  body::before{
+    content:"";
+    position:fixed; inset:0; pointer-events:none; z-index:1;
+    opacity:0.04;
+    background-image:
+      radial-gradient(circle at 15% 25%, #fff 0.6px, transparent 0.6px),
+      radial-gradient(circle at 75% 55%, #fff 0.5px, transparent 0.5px),
+      radial-gradient(circle at 45% 85%, #fff 0.7px, transparent 0.7px),
+      radial-gradient(circle at 90% 15%, #fff 0.4px, transparent 0.4px);
+    background-size:55px 55px, 85px 85px, 70px 70px, 110px 110px;
+  }
+
+  a{color:inherit; text-decoration:none;}
+  .wrap{max-width:1040px; margin:0 auto; padding:0 24px;}
+  .chalk-font{font-family:'Permanent Marker','Padauk',cursive;}
+  .mono{font-family:'Space Mono',ui-monospace,monospace;}
+
+  /* ===== NAV ===== */
+  nav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(18,28,22,0.88);
+    backdrop-filter:blur(12px) saturate(1.2);
+    -webkit-backdrop-filter:blur(12px) saturate(1.2);
+    border-bottom:1px solid var(--line);
+  }
+  nav .wrap{
+    display:flex; align-items:center; justify-content:space-between;
+    height:60px;
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    font-size:1.05rem; letter-spacing:0.02em;
+    transition:opacity .2s var(--ease);
+  }
+  .brand:hover{opacity:0.85;}
+  .brand .dot{
+    width:9px; height:9px; border-radius:50%;
+    background:var(--chalk-yellow);
+    box-shadow:0 0 0 3px var(--chalk-yellow-dim), 0 0 12px var(--chalk-yellow);
+    flex-shrink:0;
+  }
+  .navlinks{
+    display:flex; gap:28px;
+    font-size:0.88rem; color:var(--chalk-dim);
+  }
+  .navlinks a{
+    position:relative; padding:4px 0;
+    transition:color .2s var(--ease);
+  }
+  .navlinks a::after{
+    content:""; position:absolute; left:0; right:0; bottom:0;
+    height:1px; background:var(--chalk-yellow);
+    transform:scaleX(0); transform-origin:left;
+    transition:transform .25s var(--ease);
+  }
+  .navlinks a:hover{color:var(--chalk);}
+  .navlinks a:hover::after{transform:scaleX(1);}
+
+  .langtoggle{
+    display:flex; border:1px solid var(--line-strong);
+    border-radius:999px; overflow:hidden; font-size:0.78rem;
+    background:var(--board);
+  }
+  .langtoggle button{
+    background:transparent; border:none; color:var(--chalk-dim);
+    padding:7px 14px; cursor:pointer; font-family:inherit;
+    transition:background .2s, color .2s;
+  }
+  .langtoggle button:hover:not(.active){color:var(--chalk);}
+  .langtoggle button.active{
+    background:var(--chalk-yellow); color:var(--board-dark); font-weight:700;
+  }
+
+  /* ===== HERO ===== */
+  header.hero{
+    padding:88px 0 72px;
+    position:relative; overflow:hidden;
+  }
+  .court-lines{
+    position:absolute; inset:0; z-index:0; opacity:0.35;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 140px, var(--line) 140px 141px),
+      repeating-linear-gradient(90deg, transparent 0 180px, var(--line) 180px 181px);
+    mask-image:linear-gradient(to bottom, black 40%, transparent 95%);
+  }
+  .hero-inner{position:relative; z-index:2;}
+
+  .eyebrow{
+    color:var(--rain-blue); font-family:'Space Mono',monospace;
+    font-size:0.75rem; letter-spacing:0.14em; text-transform:uppercase;
+    margin-bottom:16px; display:flex; align-items:center; gap:12px;
+  }
+  .eyebrow::before{
+    content:""; width:28px; height:1.5px; background:var(--rain-blue);
+    border-radius:1px;
+  }
+
+  h1.title{
+    font-family:'Permanent Marker',cursive;
+    font-size:clamp(2.5rem, 6.5vw, 4.8rem);
+    line-height:1.12; margin:0 0 20px;
+    color:var(--chalk);
+    text-shadow:0 2px 40px rgba(236,201,75,0.1);
+  }
+  .title .accent{color:var(--chalk-yellow);}
+
+  .subtitle{
+    font-size:1.05rem; color:var(--chalk-dim);
+    max-width:520px; line-height:1.75; margin:0;
+  }
+
+  .hero-meta{
+    margin-top:40px; display:flex; gap:36px; flex-wrap:wrap;
+  }
+  .meta-item{
+    border-left:2.5px solid var(--court-red);
+    padding-left:16px;
+  }
+  .meta-item .k{
+    font-family:'Space Mono',monospace; font-size:0.68rem;
+    color:var(--chalk-mute); text-transform:uppercase; letter-spacing:0.1em;
+  }
+  .meta-item .v{font-size:1.2rem; margin-top:4px; font-weight:600;}
+
+  /* rain drip bar */
+  .drip-row{
+    position:absolute; top:0; left:0; right:0; height:5px;
+    display:flex; z-index:3;
+  }
+  .drip{
+    flex:1; height:5px; background:var(--rain-blue); opacity:0.5;
+    position:relative;
+  }
+  .drip::after{
+    content:""; position:absolute; bottom:-16px; left:50%;
+    transform:translateX(-50%);
+    width:1.5px; height:16px; background:var(--rain-blue); opacity:0.45;
+    animation:fall 2.6s linear infinite;
+  }
+  .drip:nth-child(3n)::after{animation-delay:0.7s;}
+  .drip:nth-child(5n)::after{animation-delay:1.4s;}
+  .drip:nth-child(7n)::after{animation-delay:2.1s;}
+  @keyframes fall{
+    0%{height:0; opacity:0.6;}
+    60%{height:16px; opacity:0.35;}
+    100%{height:16px; opacity:0;}
+  }
+
+  /* ===== SECTIONS ===== */
+  section{
+    padding:72px 0;
+    border-top:1px solid var(--line);
+  }
+  .sec-head{
+    display:flex; align-items:baseline; gap:14px;
+    margin-bottom:36px; flex-wrap:wrap;
+  }
+  .sec-head .num{
+    font-family:'Space Mono',monospace; color:var(--court-red);
+    font-size:0.9rem; font-weight:700;
+  }
+  .sec-head h2{
+    font-family:'Permanent Marker',cursive; font-weight:400;
+    font-size:1.85rem; margin:0; color:var(--chalk);
+  }
+  .sec-head .zh-sub{
+    color:var(--chalk-dim); font-size:0.9rem;
+    font-family:'Noto Sans SC',sans-serif;
+  }
+
+  /* ===== SCOREBOARD ===== */
+  .scoreboard-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(290px,1fr));
+    gap:18px;
+  }
+  .score-card{
+    background:var(--board-light);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    position:relative;
+    transition:border-color .25s var(--ease), transform .25s var(--ease), box-shadow .25s;
+  }
+  .score-card:hover{
+    border-color:var(--line-strong);
+    transform:translateY(-2px);
+    box-shadow:var(--shadow);
+  }
+  .score-card.is-live{
+    border-color:rgba(196,90,72,0.45);
+    background:linear-gradient(160deg, var(--board-light), rgba(196,90,72,0.08));
+  }
+  .sport-tag{
+    font-family:'Space Mono',monospace; font-size:0.68rem;
+    color:var(--rain-blue); text-transform:uppercase; letter-spacing:0.1em;
+    margin-bottom:14px; display:flex; align-items:center; gap:8px;
+  }
+  .live-pill{
+    background:var(--court-red); color:var(--chalk);
+    font-size:0.6rem; padding:3px 9px; border-radius:99px;
+    letter-spacing:0.06em; font-weight:700;
+    animation:liveglow 2s ease-in-out infinite;
+  }
+  @keyframes liveglow{
+    0%,100%{box-shadow:0 0 0 0 rgba(196,90,72,0.5);}
+    50%{box-shadow:0 0 0 4px rgba(196,90,72,0);}
+  }
+  .live-pill.upcoming,
+  .live-pill.ended{
+    background:transparent; border:1px solid var(--line);
+    color:var(--chalk-mute); animation:none;
+  }
+  .teams{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .team{font-size:1.1rem; font-weight:600; flex:1; min-width:0;}
+  .team.right{text-align:right;}
+  .score{
+    font-family:'Space Mono',monospace; font-size:2rem; font-weight:700;
+    color:var(--chalk-yellow); padding:0 12px; letter-spacing:0.04em;
+    white-space:nowrap;
+  }
+  .score.time{
+    color:var(--chalk-dim); font-size:1.25rem; font-weight:600;
+  }
+  .card-foot{
+    margin-top:16px; font-size:0.76rem; color:var(--chalk-mute);
+    border-top:1px dashed var(--line); padding-top:12px;
+    display:flex; align-items:center; gap:8px;
+  }
+
+  /* ===== SCHEDULE ===== */
+  .cal-list{display:flex; flex-direction:column; gap:6px;}
+  .cal-row{
+    display:grid; grid-template-columns:88px 1fr auto;
+    gap:18px; align-items:center;
+    padding:16px 20px;
+    background:var(--board-light);
+    border-radius:var(--radius-sm);
+    border:1px solid transparent;
+    transition:border-color .2s, background .2s;
+  }
+  .cal-row:hover{
+    border-color:var(--chalk-yellow-dim);
+    background:var(--board-mid);
+  }
+  .cal-date{
+    font-family:'Space Mono',monospace; color:var(--rain-blue);
+    font-size:0.82rem; font-weight:700;
+  }
+  .cal-what b{font-weight:700; font-size:0.98rem;}
+  .cal-what .sub{
+    display:block; color:var(--chalk-mute); font-size:0.8rem; margin-top:3px;
+  }
+  .cal-tag{
+    font-size:0.66rem; padding:5px 12px; border-radius:99px;
+    border:1px solid var(--line); color:var(--chalk-dim);
+    white-space:nowrap; background:var(--board);
+  }
+
+  /* ===== STANDINGS ===== */
+  .standings-groups{display:flex; flex-direction:column; gap:28px;}
+  .standings-card{
+    background:var(--board-light);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px 24px;
+  }
+  .standings-card-head{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; margin-bottom:14px;
+  }
+  .standings-card-head .sport{
+    font-family:'Space Mono',monospace; font-size:0.8rem;
+    color:var(--rain-blue); text-transform:uppercase; letter-spacing:0.08em;
+    display:flex; align-items:center; gap:8px;
+  }
+  .standings-note{font-size:0.76rem; color:var(--chalk-mute);}
+  .standings-table-wrap{overflow-x:auto;}
+  table.standings-table{
+    width:100%; border-collapse:collapse; font-size:0.85rem;
+    min-width:420px;
+  }
+  .standings-table th{
+    font-family:'Space Mono',monospace; font-size:0.62rem;
+    color:var(--chalk-mute); text-transform:uppercase; letter-spacing:0.06em;
+    text-align:center; padding:6px; border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  .standings-table td{
+    padding:10px 6px; text-align:center;
+    border-bottom:1px solid var(--line);
+  }
+  .standings-table tr:last-child td{border-bottom:none;}
+  .standings-table th:first-child, .standings-table td.team-cell{
+    text-align:left;
+  }
+  .standings-table td.team-cell{font-weight:700;}
+  .standings-table .rank{
+    font-family:'Space Mono',monospace; color:var(--chalk-mute); width:22px;
+  }
+  .standings-table td.pts{
+    font-family:'Space Mono',monospace; color:var(--chalk-yellow); font-weight:700;
+  }
+  .standings-table tr.qualify-zone td{background:rgba(236,201,75,0.05);}
+  .standings-table tr.qualify-zone td.team-cell{box-shadow:inset 3px 0 0 var(--chalk-yellow);}
+  .status-badge{
+    font-size:0.62rem; padding:4px 10px; border-radius:99px;
+    border:1px solid var(--line); color:var(--chalk-mute);
+    white-space:nowrap; display:inline-block;
+  }
+  .status-badge.qualify{background:rgba(236,201,75,0.15); border-color:transparent; color:var(--chalk-yellow);}
+  .status-badge.hunt{background:rgba(127,179,192,0.12); border-color:transparent; color:var(--rain-blue);}
+  .status-badge.out{background:rgba(196,90,72,0.12); border-color:transparent; color:var(--court-red);}
+
+  /* ===== GALLERY ===== */
+  .gallery-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(210px,1fr));
+    gap:16px;
+  }
+  .gcard{
+    aspect-ratio:4/5; border-radius:var(--radius);
+    border:1px solid var(--line);
+    background:linear-gradient(165deg, var(--board-light) 0%, var(--board) 100%);
+    display:flex; flex-direction:column; justify-content:flex-end;
+    padding:14px; position:relative; overflow:hidden;
+    transition:transform .3s var(--ease), border-color .3s;
+  }
+  .gcard:hover{
+    transform:translateY(-4px);
+    border-color:var(--line-strong);
+  }
+  .gcard .art{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0.55;
+  }
+  .gcard .art svg{width:56%; max-width:140px; height:auto;}
+  .gcard .cap{
+    position:relative; z-index:2;
+    font-size:0.8rem; color:var(--chalk);
+    background:rgba(18,28,22,0.72);
+    backdrop-filter:blur(4px);
+    padding:8px 12px; border-radius:6px;
+  }
+  .gcard .tag{
+    position:absolute; top:12px; left:12px; z-index:2;
+    font-size:0.62rem; background:var(--chalk-yellow); color:var(--board-dark);
+    padding:4px 10px; border-radius:99px; font-weight:700;
+    letter-spacing:0.02em;
+  }
+  .gcard .media{
+    position:absolute; inset:0; z-index:0;
+    width:100%; height:100%; object-fit:cover;
+    background:var(--board);
+  }
+  .gcard.has-media::after{
+    content:""; position:absolute; inset:0; z-index:1;
+    background:linear-gradient(180deg, transparent 45%, rgba(18,28,22,0.88) 100%);
+  }
+  .gcard.has-media .cap{background:transparent; backdrop-filter:none; padding:0;}
+
+  /* ===== AUDIO ===== */
+  .audio-box{
+    display:flex; align-items:center; gap:22px;
+    background:linear-gradient(135deg, var(--board-light), var(--board-mid));
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:26px 28px; flex-wrap:wrap;
+    position:relative; overflow:hidden;
+  }
+  .audio-box::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--court-red);
+  }
+  .pulse{
+    width:12px; height:12px; border-radius:50%;
+    background:var(--court-red); position:relative; flex:none;
+  }
+  .pulse::after{
+    content:""; position:absolute; inset:-7px; border-radius:50%;
+    border:2px solid var(--court-red);
+    animation:pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse{
+    0%{transform:scale(0.5); opacity:0.9;}
+    100%{transform:scale(1.9); opacity:0;}
+  }
+  .audio-meta{flex:1; min-width:200px;}
+  .audio-meta .who{font-size:0.76rem; color:var(--chalk-mute);}
+  .audio-meta .what{font-size:1.08rem; margin-top:3px; font-weight:600;}
+  .listen-btn{
+    background:var(--chalk-yellow); color:var(--board-dark);
+    border:none; padding:12px 24px; border-radius:var(--radius-sm);
+    font-weight:700; cursor:pointer; font-family:inherit; font-size:0.92rem;
+    transition:transform .2s, box-shadow .2s, background .2s;
+    box-shadow:0 2px 12px rgba(236,201,75,0.25);
+  }
+  .listen-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 4px 18px rgba(236,201,75,0.35);
+    background:#f0d25a;
+  }
+  .listen-btn:active{transform:translateY(0);}
+
+  /* ===== FOOTER ===== */
+  footer{
+    border-top:1px solid var(--line);
+    padding:36px 0 48px;
+    color:var(--chalk-mute); font-size:0.8rem;
+  }
+  footer .wrap{
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:12px;
+  }
+  footer .brand-foot{font-size:0.95rem; color:var(--chalk-dim);}
+
+  /* ===== RAIN LAYER ===== */
+  #rainLayer{
+    position:fixed; inset:0; z-index:2; pointer-events:none; overflow:hidden;
+  }
+  .raindrop{
+    position:absolute; top:-50px;
+    width:1.5px;
+    background:linear-gradient(180deg, transparent, var(--rain-blue) 50%, transparent);
+    opacity:0.3;
+    animation-name:rainfall;
+    animation-timing-function:linear;
+    animation-iteration-count:infinite;
+  }
+  @keyframes rainfall{
+    0%{transform:translateY(0);}
+    100%{transform:translateY(115vh);}
+  }
+
+  /* ===== LANG TOGGLE ===== */
+  [data-zh]{display:none;}
+  html[data-lang="zh"] [data-mm]{display:none;}
+  html[data-lang="zh"] [data-zh]{display:inline;}
+  html[data-lang="zh"] .chalk-font,
+  html[data-lang="zh"] h1.title,
+  html[data-lang="zh"] .sec-head h2{
+    font-family:'Noto Sans SC',sans-serif; font-weight:800;
+  }
+
+  /* ===== FOCUS ===== */
+  a:focus-visible, button:focus-visible{
+    outline:2px solid var(--chalk-yellow);
+    outline-offset:3px;
+    border-radius:4px;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width:860px){
+    .navlinks{display:none;}
+    nav .wrap{height:54px;}
+  }
+  @media (max-width:640px){
+    .wrap{padding:0 16px;}
+    header.hero{padding:60px 0 48px;}
+    .eyebrow{font-size:0.68rem;}
+    .subtitle{font-size:0.95rem;}
+    .hero-meta{gap:22px; margin-top:28px;}
+    .meta-item .v{font-size:1.05rem;}
+    section{padding:48px 0;}
+    .sec-head{margin-bottom:24px;}
+    .sec-head h2{font-size:1.5rem;}
+    .scoreboard-grid{grid-template-columns:1fr; gap:12px;}
+    .score-card{padding:18px;}
+    .score{font-size:1.7rem;}
+    .team{font-size:0.95rem;}
+    .cal-row{
+      grid-template-columns:1fr;
+      gap:6px; padding:14px 16px;
+    }
+    .cal-row .cal-tag{justify-self:flex-start;}
+    .gallery-grid{grid-template-columns:repeat(2,1fr); gap:10px;}
+    .audio-box{padding:20px; gap:14px;}
+    .listen-btn{width:100%;}
+    footer .wrap{flex-direction:column; text-align:center; gap:8px;}
+  }
+  @media (max-width:380px){
+    .gallery-grid{grid-template-columns:1fr;}
+    h1.title{font-size:2.15rem;}
+  }
+</style>
+</head>
+<body>
+
+<div id="rainLayer" aria-hidden="true"></div>
+
+<nav role="navigation" aria-label="Main">
+  <div class="wrap">
+    <a href="#" class="brand chalk-font" aria-label="ChalkStream home">
+      <span class="dot" aria-hidden="true"></span> ChalkStream
+    </a>
+    <div class="navlinks">
+      <a href="#scores"><span data-mm>လိုက်ဗ်ရလဒ်</span><span data-zh>实时比分</span></a>
+      <a href="#standings"><span data-mm>ရမှတ်ဇယား</span><span data-zh>积分榜</span></a>
+      <a href="#schedule"><span data-mm>အစီအစဉ်</span><span data-zh>赛程</span></a>
+      <a href="#gallery"><span data-mm>ပုံ/ဗီဒီယို</span><span data-zh>照片/视频</span></a>
+      <a href="#audio"><span data-mm>တိုက်ရိုက်အသံ</span><span data-zh>实时解说</span></a>
+    </div>
+    <div class="langtoggle" role="group" aria-label="Language">
+      <button id="btn-mm" class="active" onclick="setLang('mm')" aria-pressed="true">မြန်မာ</button>
+      <button id="btn-zh" onclick="setLang('zh')" aria-pressed="false">中文</button>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="drip-row" id="dripRow" aria-hidden="true"></div>
+  <div class="court-lines" aria-hidden="true"></div>
+  <div class="wrap hero-inner">
+    <div class="eyebrow">
+      <span data-mm>Grade 9 · Rainy Season Sports Meet</span>
+      <span data-zh>九年级 · 校园运动会</span>
+    </div>
+    <h1 class="title">
+      <span data-mm>မိုးရာသီ <span class="accent">အားကစားပွဲတော်</span></span>
+      <span data-zh>雨季<span class="accent">运动会</span></span>
+    </h1>
+    <p class="subtitle" data-mm>ဘောလီဘော · ဘတ်စကက်ဘော · ဘောလုံး — ကျောင်းသား/သူများရဲ့ ပွဲစဉ်တွေကို တိုက်ရိုက်ရလဒ်၊ ဇယား၊ ဓာတ်ပုံနဲ့ တိုက်ရိုက်အသံပါ တစ်နေရာတည်းမှာ လိုက်ကြည့်ပါ။</p>
+    <p class="subtitle" data-zh>排球 · 篮球 · 足球 — 在这里实时查看比分、赛程、照片和现场解说。</p>
+    <div class="hero-meta">
+      <div class="meta-item">
+        <div class="k mono"><span data-mm>ပွဲကျင်းပချိန်</span><span data-zh>赛事日期</span></div>
+        <div class="v">Jul 20 – Aug 2</div>
+      </div>
+      <div class="meta-item">
+        <div class="k mono"><span data-mm>အားကစား</span><span data-zh>项目</span></div>
+        <div class="v">3 Sports</div>
+      </div>
+      <div class="meta-item">
+        <div class="k mono"><span data-mm>အသင်း</span><span data-zh>参赛队伍</span></div>
+        <div class="v">12 Teams</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="scores" aria-labelledby="scores-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="num">01</span>
+      <h2 id="scores-title"><span data-mm>လိုက်ဗ်ရလဒ်</span><span data-zh>实时比分</span></h2>
+    </div>
+    <div class="scoreboard-grid" id="scoreboard-grid">
+      <!-- injected by renderScores() from data.json -->
+    </div>
+  </div>
+</section>
+
+<section id="standings" aria-labelledby="standings-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="num">02</span>
+      <h2 id="standings-title"><span data-mm>ရမှတ်ဇယား</span><span data-zh>积分榜</span></h2>
+    </div>
+    <div class="standings-groups" id="standings-groups">
+      <!-- injected by renderStandings() from data.json -->
+    </div>
+  </div>
+</section>
+
+<section id="schedule" aria-labelledby="schedule-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="num">03</span>
+      <h2 id="schedule-title"><span data-mm>ပွဲစဉ်ဇယား</span><span data-zh>赛程与日历</span></h2>
+    </div>
+    <div class="cal-list" id="cal-list">
+      <!-- injected by renderSchedule() from data.json -->
+    </div>
+  </div>
+</section>
+
+<section id="gallery" aria-labelledby="gallery-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="num">04</span>
+      <h2 id="gallery-title"><span data-mm>ဓာတ်ပုံ &amp; ဗီဒီယို</span><span data-zh>照片与视频</span></h2>
+    </div>
+    <div class="gallery-grid" id="gallery-grid">
+      <!-- Replaced by renderGallery() from data.json once photos/videos are added
+           in the admin panel. These placeholder cards show until then. -->
+
+      <div class="gcard">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="60" cy="60" r="28" stroke="#ecc94b" stroke-width="2.5" stroke-dasharray="4 3"/>
+            <circle cx="60" cy="60" r="8" fill="#ecc94b" opacity="0.7"/>
+            <path d="M60 20v12M60 88v12M20 60h12M88 60h12" stroke="#7fb3c0" stroke-width="2" stroke-linecap="round"/>
+            <path d="M35 35l8 8M85 85l-8-8M85 35l-8 8M35 85l8-8" stroke="#c9c6b8" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="tag">🎨 <span data-mm>Cartoon</span><span data-zh>卡通</span></span>
+        <div class="cap"><span data-mm>9-A ဘောလုံးအသင်း</span><span data-zh>9-A 足球队</span></div>
+      </div>
+
+      <div class="gcard">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="28" y="38" width="64" height="44" rx="6" stroke="#7fb3c0" stroke-width="2.5"/>
+            <polygon points="52,52 52,68 72,60" fill="#ecc94b" opacity="0.85"/>
+            <circle cx="60" cy="28" r="6" stroke="#c9c6b8" stroke-width="1.5"/>
+            <path d="M48 90h24" stroke="#c9c6b8" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <span class="tag">▶ Short</span>
+        <div class="cap"><span data-mm>Match Point Highlight</span><span data-zh>精彩瞬间</span></div>
+      </div>
+
+      <div class="gcard">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M30 85 L45 45 L60 70 L75 35 L90 85" stroke="#ecc94b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            <circle cx="45" cy="45" r="4" fill="#7fb3c0"/>
+            <circle cx="75" cy="35" r="4" fill="#c45a48"/>
+            <path d="M25 90h70" stroke="#c9c6b8" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+          </svg>
+        </div>
+        <span class="tag">🎨 <span data-mm>Cartoon</span><span data-zh>卡通</span></span>
+        <div class="cap"><span data-mm>ဖွင့်ပွဲ အခမ်းအနား</span><span data-zh>开幕式</span></div>
+      </div>
+
+      <div class="gcard">
+        <div class="art" aria-hidden="true">
+          <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="60" cy="62" rx="32" ry="22" stroke="#7fb3c0" stroke-width="2.5"/>
+            <path d="M40 55 Q60 40 80 55" stroke="#ecc94b" stroke-width="2" fill="none"/>
+            <path d="M38 70 Q60 82 82 70" stroke="#c9c6b8" stroke-width="1.5" fill="none"/>
+            <circle cx="52" cy="58" r="3" fill="#c45a48"/>
+            <circle cx="72" cy="60" r="2.5" fill="#ecc94b"/>
+          </svg>
+        </div>
+        <span class="tag">▶ Short</span>
+        <div class="cap"><span data-mm>Best Save · Volleyball</span><span data-zh>最佳扑救 · 排球</span></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="audio" aria-labelledby="audio-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="num">05</span>
+      <h2 id="audio-title"><span data-mm>တိုက်ရိုက် အသံ ဖော်ပြချက်</span><span data-zh>实时语音解说</span></h2>
+    </div>
+    <div class="audio-box">
+      <div class="pulse" aria-hidden="true"></div>
+      <div class="audio-meta">
+        <div class="who">
+          <span data-mm>NotebookLM AI Commentary · 9-A vs 9-B</span>
+          <span data-zh>NotebookLM AI 解说 · 9-A 对 9-B</span>
+        </div>
+        <div class="what">
+          <span data-mm>ဘောလီဘော Set 4 — တိုက်ရိုက်ဖော်ပြနေဆဲ</span>
+          <span data-zh>排球第4局 — 正在直播</span>
+        </div>
+      </div>
+      <button class="listen-btn" type="button" onclick="alert(document.documentElement.getAttribute('data-lang')==='zh' ? '解说即将上线 · 请稍候' : 'အသံဖော်ပြချက် မကြာမီ ရရှိပါမည်')">
+        <span data-mm>▶ နားဆင်မည်</span>
+        <span data-zh>▶ 收听</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="brand-foot chalk-font">ChalkStream</div>
+    <div>
+      <span data-mm>0 Budget · Firebase + GitHub Pages</span>
+      <span data-zh>0 预算 · Firebase + GitHub Pages</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  function setLang(lang){
+    document.documentElement.setAttribute('data-lang', lang);
+    const mm = document.getElementById('btn-mm');
+    const zh = document.getElementById('btn-zh');
+    mm.classList.toggle('active', lang === 'mm');
+    zh.classList.toggle('active', lang === 'zh');
+    mm.setAttribute('aria-pressed', lang === 'mm');
+    zh.setAttribute('aria-pressed', lang === 'zh');
+    document.documentElement.lang = lang === 'zh' ? 'zh' : 'my';
+  }
+
+  // ===== live data: scores & schedule, loaded from data.json =====
+  // Edit data.json (e.g. via the Streamlit admin panel) — this file only renders it.
+  function escapeHtml(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function renderScores(scores){
+    const grid = document.getElementById('scoreboard-grid');
+    if(!grid) return;
+    grid.innerHTML = scores.map(m => {
+      const statusClass = m.status === 'live' ? 'is-live' : '';
+      const pillClass = m.status === 'live' ? '' : (m.status === 'upcoming' ? 'upcoming' : 'ended');
+      const pillInner = m.status === 'live'
+        ? 'LIVE'
+        : `<span data-mm>${escapeHtml(m.status_mm)}</span><span data-zh>${escapeHtml(m.status_zh)}</span>`;
+      const scoreClass = m.status === 'upcoming' ? 'score time mono' : 'score';
+      return `
+      <article class="score-card ${statusClass}">
+        <div class="sport-tag">${m.sport_emoji} <span data-mm>${escapeHtml(m.sport_mm)}</span><span data-zh>${escapeHtml(m.sport_zh)}</span> <span class="live-pill ${pillClass}">${pillInner}</span></div>
+        <div class="teams">
+          <div class="team">${escapeHtml(m.team_a)}</div>
+          <div class="${scoreClass}">${escapeHtml(m.score)}</div>
+          <div class="team right">${escapeHtml(m.team_b)}</div>
+        </div>
+        <div class="card-foot">
+          <span data-mm>${escapeHtml(m.note_mm)}</span>
+          <span data-zh>${escapeHtml(m.note_zh)}</span>
+        </div>
+      </article>`;
+    }).join('');
+  }
+
+  // Points: win=3, draw=1, loss=0. Teams are ranked by points, then wins, then name.
+  // "Qualify count" = how many teams from the group advance to the semi-finals.
+  // "total_rounds" = total group-stage matches each team plays; used to work out
+  // whether a team can still mathematically catch the last qualifying spot.
+  function renderStandings(standings){
+    const wrap = document.getElementById('standings-groups');
+    if(!wrap) return;
+    wrap.innerHTML = standings.map(group => {
+      const rows = group.teams.map(t => {
+        const points = t.won * 3 + (t.draw || 0);
+        const remaining = Math.max(0, (group.total_rounds || t.played) - t.played);
+        const maxPoints = points + remaining * 3;
+        return {...t, points, maxPoints};
+      }).sort((a, b) => b.points - a.points || b.won - a.won || a.team.localeCompare(b.team));
+
+      const qualifyCount = group.qualify_count || 2;
+      const cutoff = rows.length >= qualifyCount ? rows[qualifyCount - 1].points : -Infinity;
+
+      const bodyRows = rows.map((t, idx) => {
+        const rank = idx + 1;
+        const inZone = rank <= qualifyCount;
+        let statusClass, statusMm, statusZh;
+        if(inZone){
+          statusClass = 'qualify'; statusMm = 'တက်နေ'; statusZh = '晋级区';
+        } else if(t.maxPoints < cutoff){
+          statusClass = 'out'; statusMm = 'မတက်နိုင်တော့'; statusZh = '已无缘';
+        } else {
+          statusClass = 'hunt'; statusMm = 'ရှင်သန်နေ'; statusZh = '仍有机会';
+        }
+        return `
+        <tr class="${inZone ? 'qualify-zone' : ''}">
+          <td class="rank mono">${rank}</td>
+          <td class="team-cell">${escapeHtml(t.team)}</td>
+          <td>${t.played}</td>
+          <td>${t.won}</td>
+          <td>${t.draw || 0}</td>
+          <td>${t.lost}</td>
+          <td class="pts">${t.points}</td>
+          <td><span class="status-badge ${statusClass}"><span data-mm>${statusMm}</span><span data-zh>${statusZh}</span></span></td>
+        </tr>`;
+      }).join('');
+
+      return `
+      <div class="standings-card">
+        <div class="standings-card-head">
+          <div class="sport">${group.sport_emoji} <span data-mm>${escapeHtml(group.sport_mm)}</span><span data-zh>${escapeHtml(group.sport_zh)}</span></div>
+          <div class="standings-note"><span data-mm>${escapeHtml(group.note_mm)}</span><span data-zh>${escapeHtml(group.note_zh)}</span></div>
+        </div>
+        <div class="standings-table-wrap">
+          <table class="standings-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th><span data-mm>အသင်း</span><span data-zh>球队</span></th>
+                <th title="Played">P</th>
+                <th title="Won">W</th>
+                <th title="Draw">D</th>
+                <th title="Lost">L</th>
+                <th><span data-mm>ရမှတ်</span><span data-zh>积分</span></th>
+                <th><span data-mm>အခြေအနေ</span><span data-zh>形势</span></th>
+              </tr>
+            </thead>
+            <tbody>${bodyRows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Renders real photo/video items uploaded via the admin Gallery tab.
+  // If data.gallery is empty, this is skipped and the static placeholder
+  // cards already in the HTML stay put.
+  function renderGallery(gallery){
+    const grid = document.getElementById('gallery-grid');
+    if(!grid || !gallery || !gallery.length) return;
+    grid.innerHTML = gallery.map(g => {
+      const isVideo = g.type === 'video';
+      const mediaEl = isVideo
+        ? `<video class="media" src="${escapeHtml(g.src)}" controls preload="none" playsinline ${g.poster ? `poster="${escapeHtml(g.poster)}"` : ''}></video>`
+        : `<img class="media" src="${escapeHtml(g.src)}" alt="${escapeHtml(g.cap_mm || g.cap_zh || '')}" loading="lazy">`;
+      const tagEmoji = g.tag_emoji || (isVideo ? '▶' : '📷');
+      return `
+      <div class="gcard has-media">
+        ${mediaEl}
+        <span class="tag">${tagEmoji} <span data-mm>${escapeHtml(g.tag_mm || '')}</span><span data-zh>${escapeHtml(g.tag_zh || '')}</span></span>
+        <div class="cap"><span data-mm>${escapeHtml(g.cap_mm || '')}</span><span data-zh>${escapeHtml(g.cap_zh || '')}</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderSchedule(schedule){
+    const list = document.getElementById('cal-list');
+    if(!list) return;
+    list.innerHTML = schedule.map(ev => {
+      const tag = ev.is_emoji_tag
+        ? escapeHtml(ev.tag_mm)
+        : `<span data-mm>${escapeHtml(ev.tag_mm)}</span><span data-zh>${escapeHtml(ev.tag_zh)}</span>`;
+      return `
+      <div class="cal-row">
+        <div class="cal-date mono">${escapeHtml(ev.date)}</div>
+        <div class="cal-what">
+          <b data-mm>${escapeHtml(ev.title_mm)}</b><b data-zh>${escapeHtml(ev.title_zh)}</b>
+          <span class="sub" data-mm>${escapeHtml(ev.sub_mm)}</span><span class="sub" data-zh>${escapeHtml(ev.sub_zh)}</span>
+        </div>
+        <div class="cal-tag">${tag}</div>
+      </div>`;
+    }).join('');
+  }
+
+  // Render functions above are called by js/app.js (a module script, loaded
+  // below) whenever Firestore data changes. They stay as plain global
+  // functions here (not moved into app.js) so nothing else on the page has
+  // to change. window.__reSyncLang() is called after each render so the
+  // bilingual toggle stays correct for freshly-injected nodes.
+  window.renderScores = renderScores;
+  window.renderStandings = renderStandings;
+  window.renderSchedule = renderSchedule;
+  window.renderGallery = renderGallery;
+  window.__reSyncLang = function(){
+    const current = document.documentElement.getAttribute('data-lang') || 'mm';
+    setLang(current);
+  };
+
+  // rain drip row
+  const row = document.getElementById('dripRow');
+  for(let i = 0; i < 48; i++){
+    const d = document.createElement('div');
+    d.className = 'drip';
+    row.appendChild(d);
+  }
+
+  // falling rain — lighter on small screens / reduced motion
+  const rainLayer = document.getElementById('rainLayer');
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const isMobile = window.matchMedia('(max-width: 640px)').matches;
+  const DROP_COUNT = prefersReduced ? 0 : (isMobile ? 36 : 64);
+
+  for(let i = 0; i < DROP_COUNT; i++){
+    const drop = document.createElement('div');
+    drop.className = 'raindrop';
+    drop.style.left = (Math.random() * 100) + 'vw';
+    drop.style.height = (12 + Math.random() * 24) + 'px';
+    drop.style.animationDuration = (0.85 + Math.random() * 1.2) + 's';
+    drop.style.animationDelay = (Math.random() * 3.5) + 's';
+    drop.style.opacity = (0.12 + Math.random() * 0.28);
+    rainLayer.appendChild(drop);
+  }
+</script>
+
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>
