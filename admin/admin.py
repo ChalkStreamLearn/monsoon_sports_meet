@@ -150,7 +150,7 @@ def delete_doc(name, doc_id):
     db.collection(name).document(doc_id).delete()
 
 
-def save_upload_to_storage(uploaded_file):
+def save_upload_to_storage(uploaded_file, folder="gallery"):
     """Upload a file to Cloudinary (unsigned preset), return (public_url, public_id, kind)."""
     ext = Path(uploaded_file.name).suffix.lower()
     kind = "video" if ext in VIDEO_EXTS else "photo" if ext in IMAGE_EXTS else None
@@ -165,7 +165,7 @@ def save_upload_to_storage(uploaded_file):
         f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/{resource_type}/upload",
         data={
             "upload_preset": CLOUDINARY_UPLOAD_PRESET,
-            "public_id": f"gallery/{safe_name}",
+            "public_id": f"{folder}/{safe_name}",
         },
         files={
             "file": (uploaded_file.name, uploaded_file.getvalue(), content_type or "application/octet-stream"),
@@ -191,11 +191,29 @@ def delete_from_cloudinary(public_id, kind):
     return resp.ok
 
 
+def load_branding():
+    """Single-document collection ('branding/main') holding the site logo
+    and the animated hero banner (either a photo slideshow or a video)."""
+    snap = db.collection("branding").document("main").get()
+    data = snap.to_dict() if snap.exists else {}
+    data.setdefault("logo_url", "")
+    data.setdefault("logo_public_id", "")
+    data.setdefault("banner_mode", "slideshow")
+    data.setdefault("banner_images", [])
+    data.setdefault("banner_video_url", "")
+    data.setdefault("banner_video_public_id", "")
+    return data
+
+
+def save_branding(data):
+    db.collection("branding").document("main").set(data, merge=True)
+
+
 st.title("🏐 ChalkStream Admin")
 st.caption("Edits Firestore directly — changes appear on the live site within seconds.")
 
-tab_scores, tab_standings, tab_schedule, tab_gallery = st.tabs(
-    ["Live Scores", "Standings", "Schedule", "Gallery"]
+tab_scores, tab_standings, tab_schedule, tab_gallery, tab_branding = st.tabs(
+    ["Live Scores", "Standings", "Schedule", "Gallery", "Branding"]
 )
 
 # ---------- SCORES TAB ----------
@@ -315,7 +333,9 @@ with tab_standings:
             st.markdown("**Teams**")
             teams = group.setdefault("teams", [])
             for ti, t in enumerate(teams):
-                c1, c2, c3, c4, c5, c6 = st.columns([2, 1, 1, 1, 1, 0.6])
+                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
+                    [1.8, 0.9, 0.9, 0.9, 0.9, 0.5, 0.5, 0.5]
+                )
                 t["team"] = c1.text_input("Team", t.get("team", ""), key=f"t{gi}_{ti}_name")
                 t["played"] = c2.number_input(
                     "P", min_value=0, value=int(t.get("played", 0)), key=f"t{gi}_{ti}_p"
@@ -329,7 +349,15 @@ with tab_standings:
                 t["lost"] = c5.number_input(
                     "L", min_value=0, value=int(t.get("lost", 0)), key=f"t{gi}_{ti}_l"
                 )
-                if c6.button("🗑", key=f"t{gi}_{ti}_del"):
+                if c6.button("⬆️", key=f"t{gi}_{ti}_up", disabled=(ti == 0)):
+                    teams[ti - 1], teams[ti] = teams[ti], teams[ti - 1]
+                    save_collection_order("standings", standings)
+                    st.rerun()
+                if c7.button("⬇️", key=f"t{gi}_{ti}_down", disabled=(ti == len(teams) - 1)):
+                    teams[ti + 1], teams[ti] = teams[ti], teams[ti + 1]
+                    save_collection_order("standings", standings)
+                    st.rerun()
+                if c8.button("🗑", key=f"t{gi}_{ti}_del"):
                     teams.pop(ti)
                     save_collection_order("standings", standings)
                     st.rerun()
@@ -364,6 +392,19 @@ with tab_schedule:
 
     for i, ev in enumerate(schedule):
         with st.expander(f"{ev.get('date','')} — {ev.get('title_mm','')}", expanded=False):
+            c1, c2, c3 = st.columns(3)
+            if c1.button("⬆️ Move up", key=f"up{i}", disabled=(i == 0)):
+                schedule[i - 1], schedule[i] = schedule[i], schedule[i - 1]
+                save_collection_order("schedule", schedule)
+                st.rerun()
+            if c2.button("⬇️ Move down", key=f"down{i}", disabled=(i == len(schedule) - 1)):
+                schedule[i + 1], schedule[i] = schedule[i], schedule[i + 1]
+                save_collection_order("schedule", schedule)
+                st.rerun()
+            if c3.button("🗑 Delete this row", key=f"delev{i}"):
+                delete_doc("schedule", ev["_id"])
+                st.rerun()
+
             c1, c2 = st.columns(2)
             ev["date"] = c1.text_input("Date label", ev.get("date", ""), key=f"d{i}")
             ev["is_emoji_tag"] = c2.checkbox(
@@ -381,10 +422,6 @@ with tab_schedule:
             c1, c2 = st.columns(2)
             ev["tag_mm"] = c1.text_input("Tag (Burmese/emoji)", ev.get("tag_mm", ""), key=f"tagmm{i}")
             ev["tag_zh"] = c2.text_input("Tag (Chinese/emoji)", ev.get("tag_zh", ""), key=f"tagzh{i}")
-
-            if st.button("🗑 Delete this row", key=f"delev{i}"):
-                delete_doc("schedule", ev["_id"])
-                st.rerun()
 
     st.divider()
     if st.button("➕ Add new schedule row"):
@@ -479,10 +516,150 @@ with tab_gallery:
             db.collection("gallery").document(doc_id).set(payload, merge=True)
         st.success("Saved.")
 
+# ---------- BRANDING TAB ----------
+with tab_branding:
+    st.subheader("Logo & animated banner")
+    st.caption(
+        "The logo shows top-left in the site navigation on every page (desktop "
+        "and mobile). The banner plays as the background of the hero section, "
+        "behind the title — pick either a rotating photo slideshow or a single "
+        "looping video clip."
+    )
+    branding = load_branding()
+
+    # --- Logo ---
+    st.markdown("**Event logo**")
+    if branding.get("logo_url"):
+        st.image(branding["logo_url"], width=160)
+    logo_file = st.file_uploader(
+        "Upload logo (PNG/JPG — a transparent background works best)",
+        type=["png", "jpg", "jpeg", "webp"],
+        key="logo_uploader",
+    )
+    c1, c2 = st.columns(2)
+    if logo_file and c1.button("⬆️ Set as logo"):
+        old_public_id = branding.get("logo_public_id")
+        public_url, public_id, kind = save_upload_to_storage(logo_file, folder="branding")
+        if kind is None:
+            st.warning("Unsupported file type.")
+        else:
+            if old_public_id:
+                try:
+                    delete_from_cloudinary(old_public_id, "photo")
+                except Exception:
+                    pass
+            branding["logo_url"] = public_url
+            branding["logo_public_id"] = public_id
+            save_branding(branding)
+            st.success("Logo updated — check the live site in a few seconds.")
+            st.rerun()
+    if branding.get("logo_url") and c2.button("🗑 Remove logo"):
+        try:
+            delete_from_cloudinary(branding.get("logo_public_id"), "photo")
+        except Exception:
+            pass
+        branding["logo_url"] = ""
+        branding["logo_public_id"] = ""
+        save_branding(branding)
+        st.rerun()
+
+    st.divider()
+
+    # --- Banner ---
+    st.markdown("**Animated hero banner**")
+    mode_labels = {"slideshow": "Slideshow (multiple photos)", "video": "Video (single clip)"}
+    current_mode = branding.get("banner_mode", "slideshow")
+    chosen_label = st.radio(
+        "Banner type",
+        options=list(mode_labels.values()),
+        index=list(mode_labels.keys()).index(current_mode) if current_mode in mode_labels else 0,
+        key="banner_mode_radio",
+    )
+    new_mode = next(k for k, v in mode_labels.items() if v == chosen_label)
+    if new_mode != branding.get("banner_mode"):
+        branding["banner_mode"] = new_mode
+        save_branding(branding)
+        st.rerun()
+
+    if branding["banner_mode"] == "slideshow":
+        st.caption("Photos rotate automatically every few seconds on the live site.")
+        images = branding.setdefault("banner_images", [])
+        for bi, img in enumerate(images):
+            c1, c2, c3, c4 = st.columns([3, 0.6, 0.6, 0.6])
+            c1.image(img.get("url", ""), width=140)
+            if c2.button("⬆️", key=f"banner_up{bi}", disabled=(bi == 0)):
+                images[bi - 1], images[bi] = images[bi], images[bi - 1]
+                save_branding(branding)
+                st.rerun()
+            if c3.button("⬇️", key=f"banner_down{bi}", disabled=(bi == len(images) - 1)):
+                images[bi + 1], images[bi] = images[bi], images[bi + 1]
+                save_branding(branding)
+                st.rerun()
+            if c4.button("🗑", key=f"banner_del{bi}"):
+                removed = images.pop(bi)
+                try:
+                    delete_from_cloudinary(removed.get("public_id"), "photo")
+                except Exception:
+                    pass
+                save_branding(branding)
+                st.rerun()
+
+        new_banner_files = st.file_uploader(
+            "Add photo(s) to slideshow",
+            type=["jpg", "jpeg", "png", "webp"],
+            accept_multiple_files=True,
+            key="banner_slideshow_uploader",
+        )
+        if new_banner_files and st.button(f"➕ Add {len(new_banner_files)} photo(s) to banner"):
+            for f in new_banner_files:
+                public_url, public_id, kind = save_upload_to_storage(f, folder="branding")
+                if kind:
+                    images.append({"url": public_url, "public_id": public_id})
+            save_branding(branding)
+            st.success("Banner photos updated.")
+            st.rerun()
+
+    else:  # video mode
+        st.caption("A single looping video clip plays muted behind the hero title.")
+        if branding.get("banner_video_url"):
+            st.video(branding["banner_video_url"])
+        video_file = st.file_uploader(
+            "Upload banner video (MP4/WebM — keep it short & compressed)",
+            type=["mp4", "webm", "mov", "m4v"],
+            key="banner_video_uploader",
+        )
+        c1, c2 = st.columns(2)
+        if video_file and c1.button("⬆️ Set as banner video"):
+            old_public_id = branding.get("banner_video_public_id")
+            public_url, public_id, kind = save_upload_to_storage(video_file, folder="branding")
+            if kind is None:
+                st.warning("Unsupported file type.")
+            else:
+                if old_public_id:
+                    try:
+                        delete_from_cloudinary(old_public_id, "video")
+                    except Exception:
+                        pass
+                branding["banner_video_url"] = public_url
+                branding["banner_video_public_id"] = public_id
+                save_branding(branding)
+                st.success("Banner video updated.")
+                st.rerun()
+        if branding.get("banner_video_url") and c2.button("🗑 Remove banner video"):
+            try:
+                delete_from_cloudinary(branding.get("banner_video_public_id"), "video")
+            except Exception:
+                pass
+            branding["banner_video_url"] = ""
+            branding["banner_video_public_id"] = ""
+            save_branding(branding)
+            st.rerun()
+
 with st.expander("Raw data (advanced, read-only preview)"):
     st.json({
         "scores": load_collection("scores"),
         "standings": load_collection("standings"),
         "schedule": load_collection("schedule"),
         "gallery": load_collection("gallery"),
+        "branding": load_branding(),
     })
