@@ -502,7 +502,10 @@
   /* ===== RAIN LAYER ===== */
   #rainLayer{
     position:fixed; inset:0; z-index:2; pointer-events:none; overflow:hidden;
+    transition:transform 2.4s ease-in-out;
   }
+  #rainLayer.gust-left{transform:skewX(-10deg) translateX(-18px);}
+  #rainLayer.gust-right{transform:skewX(10deg) translateX(18px);}
   .raindrop{
     position:absolute; top:-50px;
     width:1.5px;
@@ -601,12 +604,11 @@
       <span data-zh>九年级 · 校园运动会</span>
     </div>
     <h1 class="title">
-      <span data-mm>မုံးကိုးခရိုင် <span class="accent">မိုးရာသီအားကစားပွဲတော်မှ ကြိုဆိုပါ၏
-</span></span>
-      <span data-zh>勐古县<span class="accent">欢迎来到雨季运动会</span></span>
+      <span data-mm>မိုးရာသီ <span class="accent">အားကစားပွဲတော်</span></span>
+      <span data-zh>雨季<span class="accent">运动会</span></span>
     </h1>
-    <p class="subtitle" data-mm>ဘောလီဘော · ဘတ်စကက်ဘော · ဘောလုံး — ပွဲစဉ်တွေကို တိုက်ရိုက်ရလဒ်၊ ဇယား၊ ဓာတ်ပုံနဲ့ တိုက်ရိုက်အသံပါ တစ်နေရာတည်းမှာ ကြည့်ရဖို့ ရည်ရွယ်ပါတယ်။</p>
-    <p class="subtitle" data-zh>排球 · 篮球 · 足球——旨在在一个平台上观看比赛的实时结果、积分榜、照片以及实时解说.</p>
+    <p class="subtitle" data-mm>ဘောလီဘော · ဘတ်စကက်ဘော · ဘောလုံး — ကျောင်းသား/သူများရဲ့ ပွဲစဉ်တွေကို တိုက်ရိုက်ရလဒ်၊ ဇယား၊ ဓာတ်ပုံနဲ့ တိုက်ရိုက်အသံပါ တစ်နေရာတည်းမှာ လိုက်ကြည့်ပါ။</p>
+    <p class="subtitle" data-zh>排球 · 篮球 · 足球 — 在这里实时查看比分、赛程、照片和现场解说。</p>
     <div class="hero-meta">
       <div class="meta-item">
         <div class="k mono"><span data-mm>ပွဲကျင်းပချိန်</span><span data-zh>赛事日期</span></div>
@@ -980,6 +982,20 @@
     drop.style.animationDelay = (Math.random() * 3.5) + 's';
     drop.style.opacity = (0.12 + Math.random() * 0.28);
     rainLayer.appendChild(drop);
+  }
+
+  // occasional wind gusts — sway the whole rain layer left/right, then settle
+  if(!prefersReduced && DROP_COUNT > 0){
+    function gust(){
+      rainLayer.classList.remove('gust-left', 'gust-right');
+      const dir = Math.random() < 0.5 ? 'gust-left' : 'gust-right';
+      // brief pause before a gust so it reads as intermittent, not constant
+      setTimeout(() => rainLayer.classList.add(dir), 40);
+      // settle back to straight after the gust passes
+      setTimeout(() => rainLayer.classList.remove('gust-left', 'gust-right'), 40 + 1800);
+      setTimeout(gust, 4500 + Math.random() * 5500);
+    }
+    setTimeout(gust, 3000 + Math.random() * 3000);
   }
 </script>
 
