@@ -142,6 +142,7 @@ for any Firebase site) doesn't let anyone else edit your scores.
 | `schedule`  | one doc per event: `date`, `title_mm`, `title_zh`, `sub_mm`, `sub_zh`, `tag_mm`, `tag_zh`, `is_emoji_tag`, `order` |
 | `standings` | one doc per sport: `sport_key`, `sport_emoji`, `sport_mm`, `sport_zh`, `qualify_count`, `total_rounds`, `note_mm`, `note_zh`, `teams` (array), `order` |
 | `gallery`   | one doc per photo/video: `type`, `src` (Storage public URL), `storage_path`, `tag_emoji`, `tag_mm`, `tag_zh`, `cap_mm`, `cap_zh`, `uploadedAt` |
+| `branding`  | single doc (`main`): `logo_url`, `logo_public_id`, `banner_mode` (`slideshow`/`video`), `banner_images` (array of `{url, public_id}`), `banner_video_url`, `banner_video_public_id` — edited from the admin panel's Branding tab |
 
 ## Costs
 
