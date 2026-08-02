@@ -70,6 +70,16 @@
     background-size:55px 55px, 85px 85px, 70px 70px, 110px 110px;
   }
 
+  /* faint hand-drawn court-line texture, tiled behind the whole page */
+  body::after{
+    content:"";
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    opacity:0.05;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420' viewBox='0 0 420 420'%3E%3Cg fill='none' stroke='%23f2efe6' stroke-width='1.4'%3E%3Ccircle cx='210' cy='210' r='70'/%3E%3Ccircle cx='210' cy='210' r='3'/%3E%3Cpath d='M0 210h420M210 0v420'/%3E%3Crect x='20' y='150' width='90' height='120'/%3E%3Crect x='310' y='150' width='90' height='120'/%3E%3Cpath d='M110 170 Q160 210 110 250'/%3E%3Cpath d='M310 170 Q260 210 310 250'/%3E%3C/g%3E%3C/svg%3E");
+    background-size:420px 420px;
+    background-repeat:repeat;
+  }
+
   a{color:inherit; text-decoration:none;}
   .wrap{max-width:1040px; margin:0 auto; padding:0 24px;}
   .chalk-font{font-family:'Permanent Marker','Padauk',cursive;}
@@ -93,6 +103,11 @@
     transition:opacity .2s var(--ease);
   }
   .brand:hover{opacity:0.85;}
+  .nav-logo{
+    height:32px; width:auto; display:none;
+    border-radius:6px; object-fit:contain;
+  }
+  .nav-logo.show{display:block;}
   .brand .dot{
     width:9px; height:9px; border-radius:50%;
     background:var(--chalk-yellow);
@@ -144,6 +159,24 @@
     mask-image:linear-gradient(to bottom, black 40%, transparent 95%);
   }
   .hero-inner{position:relative; z-index:2;}
+
+  /* animated banner (photo slideshow or video) behind the hero title */
+  .hero-banner{
+    position:absolute; inset:0; z-index:0; overflow:hidden;
+  }
+  .hero-banner img,
+  .hero-banner video{
+    position:absolute; inset:0;
+    width:100%; height:100%; object-fit:cover;
+  }
+  .hero-banner img{
+    opacity:0; transition:opacity 1.4s var(--ease);
+  }
+  .hero-banner img.active{opacity:1;}
+  .hero-banner-overlay{
+    position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(18,28,22,0.52) 0%, rgba(18,28,22,0.74) 55%, var(--board-dark) 100%);
+  }
 
   .eyebrow{
     color:var(--rain-blue); font-family:'Space Mono',monospace;
@@ -544,6 +577,7 @@
   }
   @media (max-width:640px){
     .wrap{padding:0 16px;}
+    .nav-logo{height:26px;}
     header.hero{padding:60px 0 48px;}
     .eyebrow{font-size:0.68rem;}
     .subtitle{font-size:0.95rem;}
@@ -579,6 +613,7 @@
 <nav role="navigation" aria-label="Main">
   <div class="wrap">
     <a href="#" class="brand chalk-font" aria-label="ChalkStream home">
+      <img id="navLogo" class="nav-logo" alt="">
       <span class="dot" aria-hidden="true"></span> ChalkStream
     </a>
     <div class="navlinks">
@@ -596,18 +631,19 @@
 </nav>
 
 <header class="hero">
+  <div class="hero-banner" id="heroBanner" aria-hidden="true"></div>
   <div class="drip-row" id="dripRow" aria-hidden="true"></div>
   <div class="court-lines" aria-hidden="true"></div>
   <div class="wrap hero-inner">
     <div class="eyebrow">
       <span data-mm>Rainy Season Sports Meet</span>
-      <span data-zh>九年级 · 校园运动会</span>
+      <span data-zh>雨季运动会</span>
     </div>
     <h1 class="title">
       <span data-mm>မုံးကိုးခရိုင် <span class="accent">မိုးရာသီအားကစားပွဲတော်မှ ကြိုဆိုပါ၏</span></span>
       <span data-zh>勐古县<span class="accent">欢迎来到雨季运动会</span></span>
     </h1>
-    <p class="subtitle" data-mm>ဘောလီဘော · ဘတ်စကက်ဘော · ဘောလုံး — ကျောင်းသား/သူများရဲ့ ပွဲစဉ်တွေကို တိုက်ရိုက်ရလဒ်၊ ဇယား၊ ဓာတ်ပုံနဲ့ တိုက်ရိုက်အသံပါ တစ်နေရာတည်းမှာ လိုက်ကြည့်ပါ။</p>
+    <p class="subtitle" data-mm>ဘောလီဘော · ဘတ်စကက်ဘော · ဘောလုံး — ပွဲစဉ်တွေကို တိုက်ရိုက်ရလဒ်၊ ဇယား၊ ဓာတ်ပုံနဲ့ တိုက်ရိုက်အသံပါ တစ်နေရာတည်းမှာ လိုက်ကြည့်ပါ။</p>
     <p class="subtitle" data-zh>排球 · 篮球 · 足球 — 在这里实时查看比分、赛程、照片和现场解说。</p>
     <div class="hero-meta">
       <div class="meta-item">
@@ -945,6 +981,54 @@
     }).join('');
   }
 
+  // Logo (site-wide nav) + animated hero banner (photo slideshow or a
+  // single looping video), both fed live from the "branding" Firestore
+  // doc via the admin panel's Branding tab. Falls back to nothing (plain
+  // chalk background) when no logo/banner has been uploaded yet.
+  let heroBannerTimer = null;
+  function renderBranding(data){
+    const logoEl = document.getElementById('navLogo');
+    if(data && data.logo_url){
+      logoEl.src = data.logo_url;
+      logoEl.classList.add('show');
+    } else {
+      logoEl.classList.remove('show');
+      logoEl.removeAttribute('src');
+    }
+
+    const banner = document.getElementById('heroBanner');
+    if(!banner) return;
+    if(heroBannerTimer){ clearInterval(heroBannerTimer); heroBannerTimer = null; }
+    banner.innerHTML = '';
+
+    if(data && data.banner_mode === 'video' && data.banner_video_url){
+      const vid = document.createElement('video');
+      vid.src = data.banner_video_url;
+      vid.autoplay = true; vid.muted = true; vid.loop = true; vid.playsInline = true;
+      banner.appendChild(vid);
+    } else if(data && data.banner_mode === 'slideshow' && Array.isArray(data.banner_images) && data.banner_images.length){
+      const slides = data.banner_images.map((item, i) => {
+        const img = document.createElement('img');
+        img.src = item.url;
+        img.alt = '';
+        if(i === 0) img.classList.add('active');
+        banner.appendChild(img);
+        return img;
+      });
+      if(slides.length > 1){
+        let idx = 0;
+        heroBannerTimer = setInterval(() => {
+          slides[idx].classList.remove('active');
+          idx = (idx + 1) % slides.length;
+          slides[idx].classList.add('active');
+        }, 5000);
+      }
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'hero-banner-overlay';
+    banner.appendChild(overlay);
+  }
+
   // Render functions above are called by js/app.js (a module script, loaded
   // below) whenever Firestore data changes. They stay as plain global
   // functions here (not moved into app.js) so nothing else on the page has
@@ -954,6 +1038,7 @@
   window.renderStandings = renderStandings;
   window.renderSchedule = renderSchedule;
   window.renderGallery = renderGallery;
+  window.renderBranding = renderBranding;
   window.__reSyncLang = function(){
     const current = document.documentElement.getAttribute('data-lang') || 'mm';
     setLang(current);

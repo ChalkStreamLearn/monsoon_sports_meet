@@ -12,13 +12,12 @@ import { getStorage } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-s
 import { getAuth } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAKOajhx7vxLXUMFE3Vu6w9XZS74tLoq1s",
-  authDomain: "chalkstream-sports.firebaseapp.com",
-  projectId: "chalkstream-sports",
-  storageBucket: "chalkstream-sports.firebasestorage.app",
-  messagingSenderId: "700889174885",
-  appId: "1:700889174885:web:dcc39ab8b069b80758478c",
-  measurementId: "G-2XTG0N1K2P"
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "XXXXXXXXXXXX",
+  appId: "1:XXXXXXXXXXXX:web:XXXXXXXXXXXXXXXXXXXXXX"
 };
 
 const app = initializeApp(firebaseConfig);

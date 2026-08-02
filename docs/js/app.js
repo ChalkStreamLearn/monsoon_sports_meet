@@ -13,6 +13,7 @@
 import { db } from "./firebase.js";
 import {
   collection,
+  doc,
   onSnapshot,
   query,
   orderBy,
@@ -62,6 +63,18 @@ onSnapshot(
     afterRender();
   },
   (err) => console.error("standings listener failed:", err)
+);
+
+// ---------- Branding (logo + animated hero banner) ----------
+// Single document, not a query-ordered collection like the others above.
+const brandingRef = doc(db, "branding", "main");
+onSnapshot(
+  brandingRef,
+  (snap) => {
+    window.renderBranding(snap.exists() ? snap.data() : null);
+    afterRender();
+  },
+  (err) => console.error("branding listener failed:", err)
 );
 
 // ---------- Gallery ----------
