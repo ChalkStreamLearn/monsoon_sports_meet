@@ -508,7 +508,7 @@ with tab_fixtures:
         format_func=lambda k: f"{SPORT_OPTIONS[k][0]} {SPORT_OPTIONS[k][1]}",
         key="new_match_sport",
     )
-    if add_col2.button("➕ Add new match"):
+    if add_col2.button("➕ Add new match", key="add_new_fixture"):
         emoji, mm, zh = SPORT_OPTIONS[add_sport]
         add_doc("matches", {
             "sport_key": add_sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
