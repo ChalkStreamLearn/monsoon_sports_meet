@@ -212,8 +212,8 @@ def save_branding(data):
 st.title("🏐 ChalkStream Admin")
 st.caption("Edits Firestore directly — changes appear on the live site within seconds.")
 
-tab_scores, tab_standings, tab_schedule, tab_gallery, tab_branding = st.tabs(
-    ["Live Scores", "Standings", "Schedule", "Gallery", "Branding"]
+tab_scores, tab_standings, tab_schedule, tab_fixtures, tab_gallery, tab_branding = st.tabs(
+    ["Live Scores", "Standings", "Event Schedule", "Match Fixtures", "Gallery", "Branding"]
 )
 
 # ---------- SCORES TAB ----------
@@ -434,6 +434,91 @@ with tab_schedule:
 
     if schedule and st.button("💾 Save schedule changes", type="primary", key="save_schedule"):
         save_collection_order("schedule", schedule)
+        st.success("Saved — live site will update within a couple seconds.")
+
+# ---------- MATCH FIXTURES TAB ----------
+with tab_fixtures:
+    st.subheader("Match fixtures (ပွဲစဉ်ဇယား)")
+    st.caption(
+        "Which teams play which sport, on what date and time. Separate from "
+        "the Event Schedule tab (which is for ceremony-level events like the "
+        "lottery draw, opening, semis, finals)."
+    )
+    SPORT_OPTIONS = {
+        "football": ("⚽", "ဘောလုံး", "足球"),
+        "volleyball": ("🏐", "ဘောလီဘော", "排球"),
+        "basketball": ("🏀", "ဘတ်စကက်ဘော", "篮球"),
+    }
+    matches = load_collection("matches")
+
+    sport_filter = st.radio(
+        "Filter by sport",
+        options=["All"] + list(SPORT_OPTIONS.keys()),
+        format_func=lambda k: "All" if k == "All" else f"{SPORT_OPTIONS[k][0]} {SPORT_OPTIONS[k][1]}",
+        horizontal=True,
+        key="fixture_sport_filter",
+    )
+    visible = [
+        (i, m) for i, m in enumerate(matches)
+        if sport_filter == "All" or m.get("sport_key") == sport_filter
+    ]
+
+    for i, m in visible:
+        label = f"{SPORT_OPTIONS.get(m.get('sport_key'), ('❔',))[0]} {m.get('date','')} {m.get('time','')} — {m.get('team_a','?')} vs {m.get('team_b','?')}"
+        with st.expander(label, expanded=False):
+            c1, c2, c3 = st.columns(3)
+            if c1.button("⬆️ Move up", key=f"mup{i}", disabled=(i == 0)):
+                matches[i - 1], matches[i] = matches[i], matches[i - 1]
+                save_collection_order("matches", matches)
+                st.rerun()
+            if c2.button("⬇️ Move down", key=f"mdown{i}", disabled=(i == len(matches) - 1)):
+                matches[i + 1], matches[i] = matches[i], matches[i + 1]
+                save_collection_order("matches", matches)
+                st.rerun()
+            if c3.button("🗑 Delete this match", key=f"mdel{i}"):
+                delete_doc("matches", m["_id"])
+                st.rerun()
+
+            sport_keys = list(SPORT_OPTIONS.keys())
+            current_sport = m.get("sport_key", "football")
+            new_sport = st.selectbox(
+                "Sport", sport_keys,
+                index=sport_keys.index(current_sport) if current_sport in sport_keys else 0,
+                format_func=lambda k: f"{SPORT_OPTIONS[k][0]} {SPORT_OPTIONS[k][1]} / {SPORT_OPTIONS[k][2]}",
+                key=f"msport{i}",
+            )
+            m["sport_key"] = new_sport
+            m["sport_emoji"], m["sport_mm"], m["sport_zh"] = SPORT_OPTIONS[new_sport]
+
+            c1, c2 = st.columns(2)
+            m["date"] = c1.text_input("Date (e.g. AUG 16)", m.get("date", ""), key=f"mdate{i}")
+            m["time"] = c2.text_input("Time (e.g. 3:00 PM)", m.get("time", ""), key=f"mtime{i}")
+
+            c1, c2 = st.columns(2)
+            m["team_a"] = c1.text_input("Team A", m.get("team_a", ""), key=f"mta{i}")
+            m["team_b"] = c2.text_input("Team B", m.get("team_b", ""), key=f"mtb{i}")
+
+            m["note_mm"] = st.text_input("Note (Burmese, optional)", m.get("note_mm", ""), key=f"mnotemm{i}")
+            m["note_zh"] = st.text_input("Note (Chinese, optional)", m.get("note_zh", ""), key=f"mnotezh{i}")
+
+    st.divider()
+    add_col1, add_col2 = st.columns(2)
+    add_sport = add_col1.selectbox(
+        "Sport for new match", list(SPORT_OPTIONS.keys()),
+        format_func=lambda k: f"{SPORT_OPTIONS[k][0]} {SPORT_OPTIONS[k][1]}",
+        key="new_match_sport",
+    )
+    if add_col2.button("➕ Add new match"):
+        emoji, mm, zh = SPORT_OPTIONS[add_sport]
+        add_doc("matches", {
+            "sport_key": add_sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
+            "date": "", "time": "", "team_a": "", "team_b": "",
+            "note_mm": "", "note_zh": "",
+        })
+        st.rerun()
+
+    if matches and st.button("💾 Save fixture changes", type="primary", key="save_matches"):
+        save_collection_order("matches", matches)
         st.success("Saved — live site will update within a couple seconds.")
 
 # ---------- GALLERY TAB ----------
@@ -660,6 +745,7 @@ with st.expander("Raw data (advanced, read-only preview)"):
         "scores": load_collection("scores"),
         "standings": load_collection("standings"),
         "schedule": load_collection("schedule"),
+        "matches": load_collection("matches"),
         "gallery": load_collection("gallery"),
         "branding": load_branding(),
     })
