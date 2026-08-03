@@ -45,6 +45,7 @@ import uuid
 from pathlib import Path
 
 import firebase_admin
+import pandas as pd
 import requests
 import streamlit as st
 from firebase_admin import credentials, firestore
@@ -520,6 +521,50 @@ with tab_fixtures:
     if matches and st.button("💾 Save fixture changes", type="primary", key="save_matches"):
         save_collection_order("matches", matches)
         st.success("Saved — live site will update within a couple seconds.")
+
+    st.divider()
+    with st.expander("📥 Bulk import from Excel"):
+        st.caption(
+            "Upload a .xlsx file with columns: sport, date, time, team_1, team_2, "
+            "note_mm (optional), note_zh (optional). sport must be exactly "
+            "'football', 'volleyball', or 'basketball'. Each row becomes one match."
+        )
+        xlsx_file = st.file_uploader(
+            "Fixtures spreadsheet (.xlsx)", type=["xlsx"], key="fixtures_xlsx"
+        )
+        if xlsx_file and st.button("Import from Excel", key="import_xlsx_matches"):
+            try:
+                df = pd.read_excel(xlsx_file)
+            except Exception as e:
+                st.error(f"Couldn't read that file: {e}")
+                df = None
+            if df is not None:
+                imported, skipped = 0, 0
+                for _, row in df.iterrows():
+                    sport = str(row.get("sport", "")).strip().lower()
+                    if sport not in SPORT_OPTIONS:
+                        skipped += 1
+                        continue
+                    emoji, mm, zh = SPORT_OPTIONS[sport]
+
+                    def clean(val):
+                        return "" if pd.isna(val) else str(val).strip()
+
+                    add_doc("matches", {
+                        "sport_key": sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
+                        "date": clean(row.get("date", "")),
+                        "time": clean(row.get("time", "")),
+                        "team_a": clean(row.get("team_1", "")),
+                        "team_b": clean(row.get("team_2", "")),
+                        "note_mm": clean(row.get("note_mm", "")),
+                        "note_zh": clean(row.get("note_zh", "")),
+                    })
+                    imported += 1
+                msg = f"Imported {imported} match(es)."
+                if skipped:
+                    msg += f" Skipped {skipped} row(s) with an unrecognized 'sport' value."
+                st.success(msg)
+                st.rerun()
 
 # ---------- GALLERY TAB ----------
 with tab_gallery:
