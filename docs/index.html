@@ -357,6 +357,26 @@
     white-space:nowrap; background:var(--board);
   }
 
+  /* ===== DAY TABS (Yesterday / Today / Upcoming, per sport) ===== */
+  .daytabs{
+    display:inline-flex; border:1px solid var(--line-strong);
+    border-radius:999px; overflow:hidden; background:var(--board);
+    margin-bottom:14px;
+  }
+  .daytab-btn{
+    background:transparent; border:none; color:var(--chalk-dim);
+    padding:8px 18px; cursor:pointer; font-family:inherit;
+    font-size:0.8rem; font-weight:700; letter-spacing:0.01em;
+    transition:background .2s var(--ease), color .2s var(--ease);
+  }
+  .daytab-btn:hover:not(.active){color:var(--chalk);}
+  .daytab-btn.active{background:var(--chalk-yellow); color:var(--board-dark);}
+  .daytab-panel[hidden]{display:none;}
+  .daytab-empty{
+    padding:16px 20px; margin:0; background:var(--board-light);
+    border-radius:var(--radius-sm); color:var(--chalk-mute); font-size:0.85rem;
+  }
+
   /* ===== STANDINGS ===== */
   .standings-groups{display:flex; flex-direction:column; gap:28px;}
   .standings-card{
@@ -599,6 +619,8 @@
       gap:6px; padding:14px 16px;
     }
     .cal-row .cal-tag{justify-self:flex-start;}
+    .daytabs{display:flex; width:100%;}
+    .daytab-btn{flex:1; text-align:center; padding:9px 8px;}
     .gallery-grid{grid-template-columns:repeat(2,1fr); gap:10px;}
     .audio-box{padding:20px; gap:14px;}
     .listen-btn{width:100%;}
@@ -1008,6 +1030,45 @@
   window.renderSchedule = renderSchedule;
   window.renderGallery = renderGallery;
 
+  // Buckets a match's date into 'yesterday' (any past date — i.e. results),
+  // 'today', or 'upcoming' (any future date). Accepts ISO dates ("2026-08-15")
+  // or short form ("Aug 15", assumed to fall in the event year below).
+  const EVENT_YEAR = 2026;
+  function classifyMatchDay(dateStr){
+    if(!dateStr) return 'upcoming';
+    const d = /^\d{4}-\d{2}-\d{2}/.test(dateStr)
+      ? new Date(dateStr)
+      : new Date(`${dateStr}, ${EVENT_YEAR}`);
+    if(isNaN(d.getTime())) return 'upcoming';
+    const now = new Date();
+    const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const d0 = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const diff = Math.round((d0 - today0) / 86400000);
+    if(diff === 0) return 'today';
+    return diff < 0 ? 'yesterday' : 'upcoming';
+  }
+
+  const DAY_TABS = [
+    {key:'yesterday', mm:'မနေ့က', zh:'昨天'},
+    {key:'today',     mm:'ဒီနေ့',  zh:'今天'},
+    {key:'upcoming',  mm:'လာမည့်ပွဲစဉ်', zh:'即将举行'}
+  ];
+
+  function renderMatchRows(list, emoji){
+    if(!list.length){
+      return `<p class="daytab-empty" data-mm>ဒီအချိန်အတွက် ပွဲစဉ်မရှိသေးပါ။</p><p class="daytab-empty" data-zh>暂无相关赛程。</p>`;
+    }
+    return `<div class="cal-list">${list.map(m => `
+      <div class="cal-row">
+        <div class="cal-date mono">${escapeHtml(m.date || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}</div>
+        <div class="cal-what">
+          <b>${escapeHtml(m.team_a || '?')} <span class="sub" style="opacity:.6">vs</span> ${escapeHtml(m.team_b || '?')}</b>
+          ${m.note_mm || m.note_zh ? `<span class="sub" data-mm>${escapeHtml(m.note_mm || '')}</span><span class="sub" data-zh>${escapeHtml(m.note_zh || '')}</span>` : ''}
+        </div>
+        <div class="cal-tag">${emoji}</div>
+      </div>`).join('')}</div>`;
+  }
+
   function renderMatches(matches){
     const wrap = document.getElementById('match-groups');
     if(!wrap) return;
@@ -1023,32 +1084,66 @@
       (groups[key] = groups[key] || []).push(m);
     });
     const keys = Object.keys(groups).sort((a, b) => order.indexOf(a) - order.indexOf(b));
-    wrap.innerHTML = keys.map(key => {
+
+    wrap.innerHTML = keys.map((key, gi) => {
       const rows = groups[key];
       const emoji = rows[0].sport_emoji || '';
       const mm = rows[0].sport_mm || '';
       const zh = rows[0].sport_zh || '';
-      const rowsHtml = rows.map(m => `
-        <div class="cal-row">
-          <div class="cal-date mono">${escapeHtml(m.date || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}</div>
-          <div class="cal-what">
-            <b>${escapeHtml(m.team_a || '?')} <span class="sub" style="opacity:.6">vs</span> ${escapeHtml(m.team_b || '?')}</b>
-            ${m.note_mm || m.note_zh ? `<span class="sub" data-mm>${escapeHtml(m.note_mm || '')}</span><span class="sub" data-zh>${escapeHtml(m.note_zh || '')}</span>` : ''}
-          </div>
-          <div class="cal-tag">${emoji}</div>
-        </div>`).join('');
+
+      const buckets = {yesterday:[], today:[], upcoming:[]};
+      rows.forEach(m => buckets[classifyMatchDay(m.date)].push(m));
+
+      // Default to Today; fall back to Upcoming, then Yesterday, whichever
+      // has fixtures so the group never opens on an empty tab.
+      let defaultTab = 'today';
+      if(!buckets.today.length){
+        defaultTab = buckets.upcoming.length ? 'upcoming' : (buckets.yesterday.length ? 'yesterday' : 'today');
+      }
+
+      const tabsHtml = DAY_TABS.map(t => `
+        <button type="button" class="daytab-btn${t.key === defaultTab ? ' active' : ''}" data-tab="${t.key}" role="tab" aria-selected="${t.key === defaultTab}">
+          <span data-mm>${t.mm}</span><span data-zh>${t.zh}</span>
+        </button>`).join('');
+
+      const panelsHtml = DAY_TABS.map(t => `
+        <div class="daytab-panel" data-tab-panel="${t.key}"${t.key === defaultTab ? '' : ' hidden'}>${renderMatchRows(buckets[t.key], emoji)}</div>`).join('');
+
       return `
-        <div class="match-group">
+        <div class="match-group" id="match-group-${key}-${gi}">
           <div class="match-group-title">
             <span class="emoji">${emoji}</span>
             <span data-mm>${escapeHtml(mm)}</span><span data-zh>${escapeHtml(zh)}</span>
           </div>
-          <div class="cal-list">${rowsHtml}</div>
+          <div class="daytabs" role="tablist" aria-label="${escapeHtml(mm)}">${tabsHtml}</div>
+          ${panelsHtml}
         </div>`;
     }).join('');
+
+    bindDayTabs(wrap);
     if(typeof window.__reSyncLang === 'function') window.__reSyncLang();
   }
   window.renderMatches = renderMatches;
+
+  // Wires click behaviour for every .daytabs control inside `root`. Each
+  // .match-group manages its own active tab independently.
+  function bindDayTabs(root){
+    root.querySelectorAll('.match-group').forEach(group => {
+      const tabs = group.querySelectorAll('.daytab-btn');
+      const panels = group.querySelectorAll('.daytab-panel');
+      tabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-tab');
+          tabs.forEach(b => {
+            const isActive = b === btn;
+            b.classList.toggle('active', isActive);
+            b.setAttribute('aria-selected', String(isActive));
+          });
+          panels.forEach(p => { p.hidden = p.getAttribute('data-tab-panel') !== target; });
+        });
+      });
+    });
+  }
 
   // ---------- Branding (logo + hero banner) ----------
   let __bannerTimer = null;
