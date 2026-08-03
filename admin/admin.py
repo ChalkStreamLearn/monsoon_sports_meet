@@ -210,11 +210,24 @@ def save_branding(data):
     db.collection("branding").document("main").set(data, merge=True)
 
 
+def _is_light(hex_color):
+    """True if a hex color is light enough that dark text reads better on
+    it than light text — used to pick readable text for team swatches."""
+    c = (hex_color or "").lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    try:
+        r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    except ValueError:
+        return True
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6
+
+
 st.title("🏐 ChalkStream Admin")
 st.caption("Edits Firestore directly — changes appear on the live site within seconds.")
 
-tab_scores, tab_standings, tab_schedule, tab_fixtures, tab_gallery, tab_branding = st.tabs(
-    ["Live Scores", "Standings", "Event Schedule", "Match Fixtures", "Gallery", "Branding"]
+tab_scores, tab_standings, tab_schedule, tab_fixtures, tab_teams, tab_gallery, tab_branding = st.tabs(
+    ["Live Scores", "Standings", "Event Schedule", "Match Fixtures", "Teams", "Gallery", "Branding"]
 )
 
 # ---------- SCORES TAB ----------
@@ -579,6 +592,44 @@ with tab_fixtures:
                 st.session_state["fixture_uploader_gen"] = st.session_state.get("fixture_uploader_gen", 0) + 1
                 st.rerun()
 
+# ---------- TEAMS TAB ----------
+with tab_teams:
+    st.subheader("Teams (နာမည် + အရောင်)")
+    st.caption(
+        "Set each team's color once here — every score card and fixture "
+        "chip for that team picks it up automatically, everywhere on the "
+        "site, no need to set it per match."
+    )
+
+    teams = load_collection("teams")
+
+    for i, t in enumerate(teams):
+        c1, c2 = st.columns([2, 1])
+        t["name"] = c1.text_input("Team name", t.get("name", ""), key=f"teamname{i}")
+        t["color"] = c2.color_picker("Color", t.get("color", "#7fb3c0"), key=f"teamcolor{i}")
+
+        text_color = "#121c16" if _is_light(t["color"]) else "#f2efe6"
+        st.markdown(
+            f'<div style="width:140px;height:60px;border-radius:8px;'
+            f'background:{t["color"]};color:{text_color};display:flex;'
+            f'align-items:center;justify-content:center;font-weight:700;'
+            f'margin-bottom:8px;">{t["name"] or "?"}</div>',
+            unsafe_allow_html=True,
+        )
+
+        if st.button("🗑 Delete this team", key=f"teamdel{i}"):
+            delete_doc("teams", t["_id"])
+            st.rerun()
+        st.divider()
+
+    if st.button("➕ Add new team"):
+        add_doc("teams", {"name": "", "color": "#7fb3c0"})
+        st.rerun()
+
+    if teams and st.button("💾 Save team changes", type="primary", key="save_teams"):
+        save_collection_order("teams", teams)
+        st.success("Saved — live site will update within a couple seconds.")
+
 # ---------- GALLERY TAB ----------
 with tab_gallery:
     st.subheader("Photos & videos")
@@ -804,6 +855,7 @@ with st.expander("Raw data (advanced, read-only preview)"):
         "standings": load_collection("standings"),
         "schedule": load_collection("schedule"),
         "matches": load_collection("matches"),
+        "teams": load_collection("teams"),
         "gallery": load_collection("gallery"),
         "branding": load_branding(),
     })
