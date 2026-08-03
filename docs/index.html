@@ -1109,8 +1109,8 @@
   }
 
   // Deterministic fallback color (from the site's own accent palette) used
-  // only when a match doesn't have an admin-set team color yet, so older
-  // fixtures don't render as blank/black chips.
+  // only when a team has no admin-set color yet, so teams without one
+  // don't render as blank/black chips.
   const FALLBACK_PALETTE = ['#7fb3c0', '#c45a48', '#ecc94b'];
   function fallbackColor(name){
     let h = 0;
@@ -1119,10 +1119,25 @@
     return FALLBACK_PALETTE[h % FALLBACK_PALETTE.length];
   }
 
-  // Validates an admin-entered hex color (#abc or #aabbcc); anything else
-  // (blank, "red", missing "#", typo, etc.) falls back gracefully.
+  // Team colors are set once per team in the admin panel's "Teams" tab
+  // (Firestore 'teams' collection: {name, color}), not per match — so
+  // every fixture/score card for a team stays in sync automatically.
+  // app.js should subscribe to that collection and call
+  // window.setTeamColors({ "Team Name": "#hexcode", ... }) whenever it
+  // changes. Stays {} (all fallback colors) until that wiring is added.
+  let TEAM_COLORS = {};
+  window.setTeamColors = function(map){
+    TEAM_COLORS = map || {};
+  };
+
+  // Validates a hex color (#abc or #aabbcc); anything else (blank, "red",
+  // missing "#", typo, etc.) falls back gracefully. Checks, in order: an
+  // explicit hex passed in (legacy per-match override, if any survive),
+  // then the team-level color set in admin, then a deterministic fallback.
   function resolveTeamColor(hex, name){
     if(hex && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hex.trim())) return hex.trim();
+    const teamHex = TEAM_COLORS[name];
+    if(teamHex && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(teamHex.trim())) return teamHex.trim();
     return fallbackColor(name);
   }
 
