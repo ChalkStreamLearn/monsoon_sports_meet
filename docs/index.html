@@ -324,6 +324,13 @@
 
   /* ===== SCHEDULE ===== */
   .cal-list{display:flex; flex-direction:column; gap:6px;}
+  .match-groups{display:flex; flex-direction:column; gap:28px;}
+  .match-group-title{
+    display:flex; align-items:center; gap:10px;
+    font-size:1.05rem; font-weight:700; color:var(--chalk);
+    margin-bottom:10px;
+  }
+  .match-group-title .emoji{font-size:1.25rem;}
   .cal-row{
     display:grid; grid-template-columns:88px 1fr auto;
     gap:18px; align-items:center;
@@ -618,6 +625,7 @@
       <a href="#scores"><span data-mm>လိုက်ဗ်ရလဒ်</span><span data-zh>实时比分</span></a>
       <a href="#standings"><span data-mm>ရမှတ်ဇယား</span><span data-zh>积分榜</span></a>
       <a href="#schedule"><span data-mm>အစီအစဉ်</span><span data-zh>赛程</span></a>
+      <a href="#matches"><span data-mm>ပွဲစဉ်ဇယား</span><span data-zh>比赛赛程</span></a>
       <a href="#gallery"><span data-mm>ပုံ/ဗီဒီယို</span><span data-zh>照片/视频</span></a>
       <a href="#audio"><span data-mm>တိုက်ရိုက်အသံ</span><span data-zh>实时解说</span></a>
     </div>
@@ -688,10 +696,22 @@
   <div class="wrap">
     <div class="sec-head">
       <span class="num">03</span>
-      <h2 id="schedule-title"><span data-mm>ပွဲစဉ်ဇယား</span><span data-zh>赛程与日历</span></h2>
+      <h2 id="schedule-title"><span data-mm>အားကစားပွဲ အစီအစဉ်</span><span data-zh>赛事日程</span></h2>
     </div>
     <div class="cal-list" id="cal-list">
-      <!-- injected by renderSchedule() from data.json -->
+      <!-- injected by renderSchedule() from Firestore -->
+    </div>
+  </div>
+</section>
+
+<section id="matches" aria-labelledby="matches-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="num">04</span>
+      <h2 id="matches-title"><span data-mm>ပွဲစဉ်ဇယား</span><span data-zh>比赛赛程</span></h2>
+    </div>
+    <div class="match-groups" id="match-groups">
+      <!-- injected by renderMatches() from Firestore -->
     </div>
   </div>
 </section>
@@ -699,7 +719,7 @@
 <section id="gallery" aria-labelledby="gallery-title">
   <div class="wrap">
     <div class="sec-head">
-      <span class="num">04</span>
+      <span class="num">05</span>
       <h2 id="gallery-title"><span data-mm>ဓာတ်ပုံ &amp; ဗီဒီယို</span><span data-zh>照片与视频</span></h2>
     </div>
     <div class="gallery-grid" id="gallery-grid">
@@ -771,7 +791,7 @@
 <section id="audio" aria-labelledby="audio-title">
   <div class="wrap">
     <div class="sec-head">
-      <span class="num">05</span>
+      <span class="num">06</span>
       <h2 id="audio-title"><span data-mm>တိုက်ရိုက် အသံ ဖော်ပြချက်</span><span data-zh>实时语音解说</span></h2>
     </div>
     <div class="audio-box">
@@ -988,6 +1008,48 @@
   window.renderStandings = renderStandings;
   window.renderSchedule = renderSchedule;
   window.renderGallery = renderGallery;
+
+  function renderMatches(matches){
+    const wrap = document.getElementById('match-groups');
+    if(!wrap) return;
+    if(!matches || !matches.length){
+      wrap.innerHTML = `<p class="sub" data-mm>ပွဲစဉ်များကို မဲနှိုက်ပြီးမှ ကြေညာပါမည်။</p><p class="sub" data-zh>抽签后将公布赛程。</p>`;
+      if(typeof window.__reSyncLang === 'function') window.__reSyncLang();
+      return;
+    }
+    const order = ['football', 'volleyball', 'basketball'];
+    const groups = {};
+    matches.forEach(m => {
+      const key = m.sport_key || 'other';
+      (groups[key] = groups[key] || []).push(m);
+    });
+    const keys = Object.keys(groups).sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    wrap.innerHTML = keys.map(key => {
+      const rows = groups[key];
+      const emoji = rows[0].sport_emoji || '';
+      const mm = rows[0].sport_mm || '';
+      const zh = rows[0].sport_zh || '';
+      const rowsHtml = rows.map(m => `
+        <div class="cal-row">
+          <div class="cal-date mono">${escapeHtml(m.date || '')}${m.time ? ' · ' + escapeHtml(m.time) : ''}</div>
+          <div class="cal-what">
+            <b>${escapeHtml(m.team_a || '?')} <span class="sub" style="opacity:.6">vs</span> ${escapeHtml(m.team_b || '?')}</b>
+            ${m.note_mm || m.note_zh ? `<span class="sub" data-mm>${escapeHtml(m.note_mm || '')}</span><span class="sub" data-zh>${escapeHtml(m.note_zh || '')}</span>` : ''}
+          </div>
+          <div class="cal-tag">${emoji}</div>
+        </div>`).join('');
+      return `
+        <div class="match-group">
+          <div class="match-group-title">
+            <span class="emoji">${emoji}</span>
+            <span data-mm>${escapeHtml(mm)}</span><span data-zh>${escapeHtml(zh)}</span>
+          </div>
+          <div class="cal-list">${rowsHtml}</div>
+        </div>`;
+    }).join('');
+    if(typeof window.__reSyncLang === 'function') window.__reSyncLang();
+  }
+  window.renderMatches = renderMatches;
 
   // ---------- Branding (logo + hero banner) ----------
   let __bannerTimer = null;
