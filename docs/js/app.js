@@ -62,6 +62,18 @@ onSnapshot(
   (err) => console.error("schedule listener failed:", err)
 );
 
+// ---------- Match fixtures ----------
+const matchesQuery = query(collection(db, "matches"), orderBy("order"));
+onSnapshot(
+  matchesQuery,
+  (snapshot) => {
+    const matches = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    window.renderMatches(matches);
+    afterRender();
+  },
+  (err) => console.error("matches listener failed:", err)
+);
+
 // ---------- Standings ----------
 // Each doc in "standings" is one sport's whole group (with a nested
 // "teams" array), matching the original data.json shape exactly so
