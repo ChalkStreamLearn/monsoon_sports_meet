@@ -13,15 +13,27 @@
 import { db } from "./firebase.js";
 import {
   collection,
-  doc,
   onSnapshot,
   query,
   orderBy,
+  doc,
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
 
 function afterRender() {
   if (typeof window.__reSyncLang === "function") window.__reSyncLang();
 }
+
+// ---------- Branding (logo + hero banner) ----------
+const brandingRef = doc(db, "branding", "main");
+onSnapshot(
+  brandingRef,
+  (snap) => {
+    if (snap.exists()) {
+      window.renderBranding(snap.data());
+    }
+  },
+  (err) => console.error("branding listener failed:", err)
+);
 
 // ---------- Live Scores ----------
 // Each doc in "scores" is one match card. Sort by an "order" number field
@@ -63,18 +75,6 @@ onSnapshot(
     afterRender();
   },
   (err) => console.error("standings listener failed:", err)
-);
-
-// ---------- Branding (logo + animated hero banner) ----------
-// Single document, not a query-ordered collection like the others above.
-const brandingRef = doc(db, "branding", "main");
-onSnapshot(
-  brandingRef,
-  (snap) => {
-    window.renderBranding(snap.exists() ? snap.data() : null);
-    afterRender();
-  },
-  (err) => console.error("branding listener failed:", err)
 );
 
 // ---------- Gallery ----------
