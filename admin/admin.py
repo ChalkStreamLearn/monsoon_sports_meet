@@ -523,14 +523,25 @@ with tab_fixtures:
         st.success("Saved — live site will update within a couple seconds.")
 
     st.divider()
-    with st.expander("📥 Bulk import from Excel"):
+    with st.expander("📥 Bulk import from Excel", expanded=bool(st.session_state.get("fixture_import_msg"))):
         st.caption(
             "Upload a .xlsx file with columns: sport, date, time, team_1, team_2, "
             "note_mm (optional), note_zh (optional). sport must be exactly "
             "'football', 'volleyball', or 'basketball'. Each row becomes one match."
         )
+
+        # Show the result of the last import — persisted across the rerun that
+        # follows a successful import, so the message doesn't just flash and
+        # disappear (which was causing people to re-click and duplicate rows).
+        if st.session_state.get("fixture_import_msg"):
+            st.success(st.session_state.pop("fixture_import_msg"))
+
+        # Bump this key after every successful import so the file_uploader
+        # resets to empty — prevents an accidental second click of "Import
+        # from Excel" from re-importing the same file again.
+        uploader_key = f"fixtures_xlsx_{st.session_state.get('fixture_uploader_gen', 0)}"
         xlsx_file = st.file_uploader(
-            "Fixtures spreadsheet (.xlsx)", type=["xlsx"], key="fixtures_xlsx"
+            "Fixtures spreadsheet (.xlsx)", type=["xlsx"], key=uploader_key
         )
         if xlsx_file and st.button("Import from Excel", key="import_xlsx_matches"):
             try:
@@ -563,7 +574,9 @@ with tab_fixtures:
                 msg = f"Imported {imported} match(es)."
                 if skipped:
                     msg += f" Skipped {skipped} row(s) with an unrecognized 'sport' value."
-                st.success(msg)
+                st.session_state["fixture_import_msg"] = msg
+                # Force the uploader to reset to empty on the next run.
+                st.session_state["fixture_uploader_gen"] = st.session_state.get("fixture_uploader_gen", 0) + 1
                 st.rerun()
 
 # ---------- GALLERY TAB ----------
