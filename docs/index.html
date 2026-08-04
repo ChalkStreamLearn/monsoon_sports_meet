@@ -984,17 +984,27 @@
 
 
 
+  // Team colors, keyed by team name — set from the admin panel's "Teams"
+  // tab (stored in the "teams" Firestore collection) and pushed here by
+  // app.js's teams listener. Any match/score/standings row that doesn't
+  // carry its own per-row color field falls back to this map by name.
+  window.__teamColors = window.__teamColors || {};
+  window.setTeamColors = function(colorMap){
+    window.__teamColors = colorMap || {};
+  };
+
   // Renders a team name inside a color box. Always wrapped in .team-chip so
   // the side-by-side matchup layout stays consistent, even with no color
   // set (falls back to a neutral board-tint background).
   function teamChip(name, hex){
     const safeName = escapeHtml(name || '?');
     let bg = 'var(--board-light)', textColor = 'var(--chalk)';
-    const h = (hex || '').replace('#', '');
+    const resolvedHex = hex || window.__teamColors[name];
+    const h = (resolvedHex || '').replace('#', '');
     if(/^[0-9a-fA-F]{6}$/.test(h)){
       const r = parseInt(h.slice(0,2), 16), g = parseInt(h.slice(2,4), 16), b = parseInt(h.slice(4,6), 16);
       const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-      bg = hex;
+      bg = resolvedHex;
       textColor = brightness > 150 ? '#1a1a1a' : '#fff';
     }
     return `<span class="team-chip" style="background:${bg}; color:${textColor}">${safeName}</span>`;
