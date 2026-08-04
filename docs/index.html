@@ -415,15 +415,6 @@
   }
   .cal-what .vs-sep{opacity:.6; margin:0 4px; font-weight:400;}
 
-  /* ===== Add-to-calendar button ===== */
-  .ics-btn{
-    display:inline-flex; align-items:center; gap:5px;
-    font-size:0.68rem; padding:5px 10px; border-radius:99px;
-    border:1px solid var(--line); color:var(--chalk-dim); background:var(--board);
-    cursor:pointer; white-space:nowrap; font-family:inherit;
-  }
-  .ics-btn:hover{border-color:var(--chalk-yellow-dim); color:var(--chalk);}
-
   /* ===== STANDINGS ===== */
   .standings-groups{display:flex; flex-direction:column; gap:28px;}
   .standings-card{
@@ -728,7 +719,7 @@
       </div>
       <div class="meta-item">
         <div class="k mono"><span data-mm>အသင်း</span><span data-zh>参赛队伍</span></div>
-        <div class="v">Football 10 teams , Basketball 8 teams , Volleyball 5 teams</div>
+        <div class="v">Football 10 teams , Basketball 8 teams , Volleyball 6 teams</div>
       </div>
     </div>
   </div>
@@ -987,71 +978,7 @@
     return isNaN(d.getTime()) ? null : d;
   }
 
-  function icsEscape(s){
-    return String(s == null ? '' : s).replace(/[\\,;]/g, m => '\\' + m).replace(/\n/g, '\\n');
-  }
-  function icsStamp(d){
-    const p = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}T${p(d.getHours())}${p(d.getMinutes())}00`;
-  }
 
-  // Builds a .ics file for one event and opens/downloads it. `hasTime` false
-  // produces an all-day event (for schedule rows with no time field).
-  window.addToCalendar = function(uid, summary, dateStr, timeStr, note){
-    const start = parseEventDateTime(dateStr, timeStr);
-    if(!start){ alert('Date/time not set for this event yet.'); return; }
-    const end = new Date(start.getTime() + 90 * 60000); // default 90-minute duration
-    const hasTime = !!timeStr;
-    const lines = [
-      'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ChalkStream//Monsoon Games//EN',
-      'BEGIN:VEVENT',
-      `UID:${uid}-${icsStamp(start)}@chalkstream`,
-      hasTime ? `DTSTART:${icsStamp(start)}` : `DTSTART;VALUE=DATE:${icsStamp(start).slice(0,8)}`,
-      hasTime ? `DTEND:${icsStamp(end)}` : `DTEND;VALUE=DATE:${icsStamp(end).slice(0,8)}`,
-      `SUMMARY:${icsEscape(summary)}`,
-      note ? `DESCRIPTION:${icsEscape(note)}` : '',
-      'END:VEVENT', 'END:VCALENDAR',
-    ].filter(Boolean);
-    const blob = new Blob([lines.join('\r\n')], {type: 'text/calendar;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${summary.replace(/[^\w\-]+/g,'_')}.ics`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  };
-
-  // Builds a single .ics containing every match in one sport group — the
-  // "add all football matches" button in each match-group header.
-  window.addSportCalendar = function(sportKey, sportLabel, rows){
-    const events = rows.map((m, i) => {
-      const start = parseEventDateTime(m.date, m.time);
-      if(!start) return '';
-      const end = new Date(start.getTime() + 90 * 60000);
-      return [
-        'BEGIN:VEVENT',
-        `UID:sport-${sportKey}-${i}-${icsStamp(start)}@chalkstream`,
-        `DTSTART:${icsStamp(start)}`,
-        `DTEND:${icsStamp(end)}`,
-        `SUMMARY:${icsEscape((m.team_a || '?') + ' vs ' + (m.team_b || '?'))}`,
-        m.note_mm || m.note_zh ? `DESCRIPTION:${icsEscape(m.note_mm || m.note_zh)}` : '',
-        'END:VEVENT',
-      ].filter(Boolean).join('\r\n');
-    }).filter(Boolean);
-    if(!events.length){ alert('No dated matches to add yet.'); return; }
-    const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ChalkStream//Monsoon Games//EN', ...events, 'END:VCALENDAR'].join('\r\n');
-    const blob = new Blob([ics], {type: 'text/calendar;charset=utf-8'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${sportLabel.replace(/[^\w\-]+/g,'_')}_matches.ics`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  };
 
   // Renders a team name inside a color box. Always wrapped in .team-chip so
   // the side-by-side matchup layout stays consistent, even with no color
@@ -1238,8 +1165,6 @@
       const tagHtml = postponed
         ? `<span class="cal-tag postponed">🌧️ <span data-mm>ဆိုင်းငံ့</span><span data-zh>延期</span></span>`
         : `<div class="cal-tag">${tag}</div>`;
-      const summary = `${ev.title_mm || ev.title_zh || 'Event'}`;
-      const note = `${ev.sub_mm || ev.sub_zh || ''}`;
       return `
       <div class="${rowClass}">
         <div class="cal-date mono">${escapeHtml(ev.date)}</div>
@@ -1248,10 +1173,6 @@
           <span class="sub" data-mm>${escapeHtml(ev.sub_mm)}</span><span class="sub" data-zh>${escapeHtml(ev.sub_zh)}</span>
         </div>
         ${tagHtml}
-        <button class="ics-btn" title="Add to calendar"
-          onclick='addToCalendar("sched${i}", ${JSON.stringify(summary)}, ${JSON.stringify(ev.date || '')}, "", ${JSON.stringify(note)})'>
-          📅 <span data-mm>Calendar ထဲထည့်</span><span data-zh>加入日历</span>
-        </button>
       </div>`;
     }).join('');
   }
@@ -1335,8 +1256,6 @@
           ? `<span class="cal-tag postponed">🌧️ <span data-mm>ဆိုင်းငံ့</span><span data-zh>延期</span></span>`
           : `<div class="cal-tag">${emoji}</div>`;
         const teamsAttr = `${(m.team_a || '').toLowerCase()} ${(m.team_b || '').toLowerCase()}`;
-        const summary = `${m.team_a || '?'} vs ${m.team_b || '?'}`;
-        const note = `${m.note_mm || m.note_zh || ''}`;
         const dt = parseEventDateTime(m.date, m.time);
         const tsAttr = dt ? ` data-ts="${dt.getTime()}"` : '';
         return `
@@ -1347,22 +1266,13 @@
             ${m.note_mm || m.note_zh ? `<span class="sub" data-mm>${escapeHtml(m.note_mm || '')}</span><span class="sub" data-zh>${escapeHtml(m.note_zh || '')}</span>` : ''}
           </div>
           ${tagHtml}
-          <button class="ics-btn" title="Add to calendar"
-            onclick='addToCalendar("match${key}${i}", ${JSON.stringify(summary)}, ${JSON.stringify(m.date || '')}, ${JSON.stringify(m.time || '')}, ${JSON.stringify(note)})'>
-            📅
-          </button>
         </div>`;
       }).join('');
-      const rowsJson = JSON.stringify(rows).replace(/'/g, '&#39;');
       return `
         <div class="match-group">
           <div class="match-group-title">
             <span class="emoji">${emoji}</span>
             <span data-mm>${escapeHtml(mm)}</span><span data-zh>${escapeHtml(zh)}</span>
-            <button class="ics-btn" style="margin-left:auto"
-              onclick='addSportCalendar(${JSON.stringify(key)}, ${JSON.stringify(mm || zh || key)}, ${rowsJson})'>
-              📅 <span data-mm>ဒီအားကစား ပွဲစဉ်အားလုံး</span><span data-zh>全部加入日历</span>
-            </button>
           </div>
           <div class="cal-list">${rowsHtml}</div>
         </div>`;
