@@ -62,6 +62,7 @@ CLOUDINARY_API_SECRET = st.secrets.get("CLOUDINARY_API_SECRET", os.environ.get("
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 VIDEO_EXTS = {".mp4", ".webm", ".mov", ".m4v"}
+AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".aac"}
 MAX_UPLOAD_MB = 60  # soft warning threshold — keep files light for slow wifi
 
 STATUS_OPTIONS = ["live", "upcoming", "ended"]
@@ -154,13 +155,20 @@ def delete_doc(name, doc_id):
 def save_upload_to_storage(uploaded_file, folder="gallery"):
     """Upload a file to Cloudinary (unsigned preset), return (public_url, public_id, kind)."""
     ext = Path(uploaded_file.name).suffix.lower()
-    kind = "video" if ext in VIDEO_EXTS else "photo" if ext in IMAGE_EXTS else None
+    kind = (
+        "video" if ext in VIDEO_EXTS
+        else "photo" if ext in IMAGE_EXTS
+        else "audio" if ext in AUDIO_EXTS
+        else None
+    )
     if kind is None:
         return None, None, None
 
     safe_name = f"{int(time.time())}-{uuid.uuid4().hex[:6]}"
     content_type, _ = mimetypes.guess_type(uploaded_file.name)
-    resource_type = "video" if kind == "video" else "image"
+    # Cloudinary has no separate "audio" resource type — audio files upload
+    # and stream fine under "video", same as clips.
+    resource_type = "video" if kind in ("video", "audio") else "image"
 
     resp = requests.post(
         f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/{resource_type}/upload",
@@ -182,7 +190,7 @@ def delete_from_cloudinary(public_id, kind):
     """Delete a file from Cloudinary. Requires CLOUDINARY_API_KEY/SECRET (admin API); no-ops otherwise."""
     if not public_id or not (CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET):
         return False
-    resource_type = "video" if kind == "video" else "image"
+    resource_type = "video" if kind in ("video", "audio") else "image"
     resp = requests.delete(
         f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/resources/{resource_type}/upload",
         auth=(CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET),
@@ -213,8 +221,8 @@ def save_branding(data):
 st.title("🏐 ChalkStream Admin")
 st.caption("Edits Firestore directly — changes appear on the live site within seconds.")
 
-tab_scores, tab_standings, tab_schedule, tab_fixtures, tab_gallery, tab_branding = st.tabs(
-    ["Live Scores", "Standings", "Event Schedule", "Match Fixtures", "Gallery", "Branding"]
+tab_scores, tab_standings, tab_schedule, tab_fixtures, tab_gallery, tab_audio, tab_branding = st.tabs(
+    ["Live Scores", "Standings", "Event Schedule", "Match Fixtures", "Gallery", "Audio", "Branding"]
 )
 
 # ---------- SCORES TAB ----------
@@ -678,6 +686,89 @@ with tab_gallery:
             db.collection("gallery").document(doc_id).set(payload, merge=True)
         st.success("Saved.")
 
+# ---------- AUDIO TAB ----------
+with tab_audio:
+    st.subheader("Live audio commentary")
+    st.caption(
+        f"Upload MP3/M4A/WAV clips — they stream straight to Cloudinary and "
+        f"appear as playable clips on the site's Audio section immediately. "
+        f"Keep files under ~{MAX_UPLOAD_MB}MB."
+    )
+
+    audio_uploads = st.file_uploader(
+        "Upload audio clip(s)",
+        type=sorted(e.strip(".") for e in AUDIO_EXTS),
+        accept_multiple_files=True,
+        key="audio_uploader",
+    )
+    if audio_uploads:
+        if st.button(f"➕ Add {len(audio_uploads)} clip(s)"):
+            added = 0
+            for f in audio_uploads:
+                size_mb = f.size / (1024 * 1024)
+                if size_mb > MAX_UPLOAD_MB:
+                    st.warning(f"Skipped {f.name} — {size_mb:.1f}MB is over the {MAX_UPLOAD_MB}MB guideline.")
+                    continue
+                public_url, public_id, kind = save_upload_to_storage(f, folder="audio")
+                if kind != "audio":
+                    st.warning(f"Skipped {f.name} — unsupported file type.")
+                    continue
+                add_doc("audio", {
+                    "src": public_url,
+                    "public_id": public_id,
+                    "who_mm": "",
+                    "who_zh": "",
+                    "what_mm": "",
+                    "what_zh": "",
+                    "uploadedAt": firestore.SERVER_TIMESTAMP,
+                }, order_hint=0)
+                added += 1
+            st.success(f"Added {added} clip(s). Scroll down to fill in the labels.")
+            st.rerun()
+
+    st.divider()
+    audio_clips = load_collection("audio")
+    st.markdown(f"**Audio clips ({len(audio_clips)})**")
+
+    for ai, item in enumerate(audio_clips):
+        with st.expander(
+            f"🎙 {item.get('what_mm') or item.get('src', '(missing file)')}",
+            expanded=False,
+        ):
+            st.audio(item.get("src", ""))
+
+            c1, c2 = st.columns(2)
+            item["who_mm"] = c1.text_input(
+                "Who / label line (Burmese)", item.get("who_mm", ""), key=f"awmm{ai}"
+            )
+            item["who_zh"] = c2.text_input(
+                "Who / label line (Chinese)", item.get("who_zh", ""), key=f"awzh{ai}"
+            )
+
+            c1, c2 = st.columns(2)
+            item["what_mm"] = c1.text_input(
+                "Clip title (Burmese)", item.get("what_mm", ""), key=f"atmm{ai}"
+            )
+            item["what_zh"] = c2.text_input(
+                "Clip title (Chinese)", item.get("what_zh", ""), key=f"atzh{ai}"
+            )
+
+            if st.button("🗑 Delete this clip (and its file)", key=f"adel{ai}"):
+                public_id = item.get("public_id")
+                try:
+                    delete_from_cloudinary(public_id, "audio")
+                except Exception:
+                    pass
+                delete_doc("audio", item["_id"])
+                st.rerun()
+
+    if audio_clips and st.button("💾 Save audio labels"):
+        for item in audio_clips:
+            doc_id = item["_id"]
+            payload = {k: v for k, v in item.items() if k != "_id"}
+            db.collection("audio").document(doc_id).set(payload, merge=True)
+        st.success("Saved.")
+
 # ---------- BRANDING TAB ----------
 with tab_branding:
     st.subheader("Logo & animated banner")
@@ -824,5 +915,6 @@ with st.expander("Raw data (advanced, read-only preview)"):
         "schedule": load_collection("schedule"),
         "matches": load_collection("matches"),
         "gallery": load_collection("gallery"),
+        "audio": load_collection("audio"),
         "branding": load_branding(),
     })
