@@ -401,6 +401,21 @@
     background:var(--chalk-yellow); border-color:var(--chalk-yellow); color:var(--board-dark); font-weight:700;
   }
 
+  /* ===== Add-to-calendar button ===== */
+  .cal-export-row{
+    display:flex; justify-content:flex-end; margin-bottom:14px;
+  }
+  .cal-export-btn{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:0.8rem; padding:9px 16px; border-radius:99px;
+    border:1px solid var(--line-strong); color:var(--chalk);
+    background:var(--board-light); cursor:pointer; font-family:inherit;
+    transition:border-color .2s, background .2s;
+  }
+  .cal-export-btn:hover{
+    border-color:var(--chalk-yellow); background:var(--board-mid);
+  }
+
   /* ===== Team color chips (side-by-side matchup boxes) ===== */
   .matchup{display:flex; align-items:stretch; gap:8px; margin-bottom:2px;}
   .team-chip{
@@ -582,6 +597,10 @@
     background:#f0d25a;
   }
   .listen-btn:active{transform:translateY(0);}
+  .audio-error{
+    font-size:0.72rem; color:var(--court-red); margin-top:6px; display:none;
+  }
+  .audio-error.show{display:block;}
 
   /* ===== FOOTER ===== */
   footer{
@@ -660,6 +679,8 @@
     .gallery-grid{grid-template-columns:repeat(2,1fr); gap:10px;}
     .audio-box{padding:20px; gap:14px;}
     .listen-btn{width:100%;}
+    .cal-export-row{justify-content:stretch;}
+    .cal-export-btn{width:100%; justify-content:center;}
     footer .wrap{flex-direction:column; text-align:center; gap:8px;}
   }
   @media (max-width:380px){
@@ -771,6 +792,11 @@
       <h2 id="matches-title"><span data-mm>ပွဲစဉ်ဇယား</span><span data-zh>比赛赛程</span></h2>
     </div>
     <div id="next-match-countdown"></div>
+    <div class="cal-export-row">
+      <button type="button" class="cal-export-btn" onclick="confirmAddAllToCalendar()">
+        📅 <span data-mm>ပွဲစဉ်အားလုံးကို Calendar ထဲ ထည့်မည်</span><span data-zh>将所有赛程添加到日历</span>
+      </button>
+    </div>
     <div class="time-filter" id="matches-time-filter">
       <button type="button" class="tf-btn active" data-mode="all" onclick="setMatchTimeMode('all')">
         <span data-mm>အားလုံး</span><span data-zh>全部</span>
@@ -981,6 +1007,73 @@
     const d = new Date(EVENT_YEAR, month, day, hour, minute);
     return isNaN(d.getTime()) ? null : d;
   }
+
+  // ---------- Add-all-to-calendar (.ics export) ----------
+  // Builds one .ics file containing every non-postponed match that has a
+  // parseable date/time, then triggers a browser download. iOS/Android both
+  // open downloaded .ics files straight into their Calendar app's "Add
+  // event(s)" screen. Runs only after the user confirms via a native
+  // confirm() dialog, so nothing is added silently.
+  function icsEscape(s){
+    return String(s == null ? '' : s).replace(/([,;])/g, '\\$1').replace(/\n/g, '\\n');
+  }
+  function toIcsDate(d){
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  }
+  function buildIcsForMatches(matches){
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//ChalkStream//Monsoon Games 2026//EN',
+      'CALSCALE:GREGORIAN',
+    ];
+    matches.forEach((m, i) => {
+      const start = parseEventDateTime(m.date, m.time);
+      if(!start) return;
+      const end = new Date(start.getTime() + 90 * 60000); // default 90-min block
+      const title = `${m.sport_emoji || ''} ${m.team_a || '?'} vs ${m.team_b || '?'}`.trim();
+      const desc = [m.note_mm, m.note_zh].filter(Boolean).join(' / ');
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:chalkstream-${i}-${start.getTime()}@monsoon2026`,
+        `DTSTAMP:${toIcsDate(new Date())}`,
+        `DTSTART:${toIcsDate(start)}`,
+        `DTEND:${toIcsDate(end)}`,
+        `SUMMARY:${icsEscape(title)}`,
+        desc ? `DESCRIPTION:${icsEscape(desc)}` : null,
+        'END:VEVENT'
+      );
+    });
+    lines.push('END:VCALENDAR');
+    return lines.filter(Boolean).join('\r\n');
+  }
+  function downloadIcs(content, filename){
+    const blob = new Blob([content], {type: 'text/calendar;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+  window.confirmAddAllToCalendar = function(){
+    const matches = (window.__latestMatches || []).filter(m => !m.postponed);
+    const withDates = matches.filter(m => parseEventDateTime(m.date, m.time));
+    const lang = document.documentElement.getAttribute('data-lang') || 'mm';
+    if(!withDates.length){
+      alert(lang === 'zh' ? '暂无可添加到日历的赛程。' : 'Calendar ထဲထည့်လို့ရမယ့် ပွဲစဉ် မရှိသေးပါ။');
+      return;
+    }
+    const msg = lang === 'zh'
+      ? `将 ${withDates.length} 场比赛添加到你的日历？`
+      : `ပွဲစဉ် ${withDates.length} ပွဲကို Calendar ထဲ ထည့်မှာ သေချာပါသလား?`;
+    if(!confirm(msg)) return;
+    const ics = buildIcsForMatches(withDates);
+    downloadIcs(ics, 'chalkstream-matches.ics');
+  };
 
 
 
@@ -1195,6 +1288,24 @@
   // Audio tab. Each clip gets its own play/pause button; playing one
   // pauses any other clip that's currently playing. If data.audio is
   // empty, this is skipped and the static placeholder card stays put.
+  // Each clip also carries a small hidden <div class="audio-error"> that
+  // is only revealed if the browser's <audio> element actually fails to
+  // load the src (bad URL, blocked host, unsupported format, etc.) — this
+  // turns a silent "nothing happens when I press play" into a visible,
+  // readable reason.
+  function audioErrorText(mediaError){
+    if(!mediaError) return null;
+    switch(mediaError.code){
+      case mediaError.MEDIA_ERR_NETWORK:
+        return {mm: 'ကွန်ရက် ပြဿနာကြောင့် အသံဖိုင် မဖွင့်နိုင်ပါ (URL ကို block/slow ဖြစ်နေနိုင်သည်)', zh: '网络问题，无法加载音频（链接可能被屏蔽或很慢）'};
+      case mediaError.MEDIA_ERR_DECODE:
+        return {mm: 'အသံဖိုင် format ပျက်နေသည် (decode error)', zh: '音频文件格式错误（解码失败）'};
+      case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+        return {mm: 'အသံဖိုင် URL မှားနေသည် (ဒါမှမဟုတ်) ဒီ format ကို browser က support မလုပ်ပါ', zh: '音频链接错误，或浏览器不支持该格式'};
+      default:
+        return {mm: 'အသံဖိုင် ဖွင့်၍မရပါ', zh: '无法播放音频'};
+    }
+  }
   function renderAudio(audioList){
     const list = document.getElementById('audio-list');
     if(!list || !audioList || !audioList.length) return;
@@ -1210,6 +1321,7 @@
             <span data-mm>${escapeHtml(a.what_mm || '')}</span>
             <span data-zh>${escapeHtml(a.what_zh || '')}</span>
           </div>
+          <div class="audio-error" id="audio-error-${i}"></div>
         </div>
         <audio id="audio-el-${i}" src="${escapeHtml(a.src)}" preload="none"></audio>
         <button class="listen-btn" type="button" onclick="toggleAudio(${i})">
@@ -1218,6 +1330,20 @@
         </button>
       </div>`).join('');
     window.__audioItems = audioList;
+    // Wire up error listeners now that the <audio> elements exist in the DOM.
+    audioList.forEach((a, i) => {
+      const el = document.getElementById(`audio-el-${i}`);
+      const errBox = document.getElementById(`audio-error-${i}`);
+      if(!el || !errBox) return;
+      el.addEventListener('error', () => {
+        const msg = audioErrorText(el.error);
+        if(!msg) return;
+        const lang = document.documentElement.getAttribute('data-lang') || 'mm';
+        errBox.textContent = lang === 'zh' ? msg.zh : msg.mm;
+        errBox.classList.add('show');
+        console.error(`audio[${i}] failed to load:`, a.src, el.error);
+      });
+    });
     if(typeof window.__reSyncLang === 'function') window.__reSyncLang();
   }
 
@@ -1242,8 +1368,21 @@
     const box = document.getElementById(`audio-box-${i}`);
     const btn = box && box.querySelector('.listen-btn');
     if(el.paused){
-      el.play();
-      setListenLabel(btn, true);
+      const playPromise = el.play();
+      if(playPromise && typeof playPromise.catch === 'function'){
+        playPromise.then(() => setListenLabel(btn, true)).catch(err => {
+          console.error(`audio[${i}] play() rejected:`, err);
+          const errBox = document.getElementById(`audio-error-${i}`);
+          if(errBox){
+            const lang = document.documentElement.getAttribute('data-lang') || 'mm';
+            errBox.textContent = lang === 'zh' ? `播放失败：${err.message || err.name}` : `ဖွင့်လို့မရပါ: ${err.message || err.name}`;
+            errBox.classList.add('show');
+          }
+          setListenLabel(btn, false);
+        });
+      } else {
+        setListenLabel(btn, true);
+      }
     } else {
       el.pause();
       setListenLabel(btn, false);
@@ -1307,6 +1446,7 @@
   function renderMatches(matches){
     const wrap = document.getElementById('match-groups');
     if(!wrap) return;
+    window.__latestMatches = matches || [];
     renderNextMatchCountdown(matches || []);
     if(!matches || !matches.length){
       wrap.innerHTML = `<p class="sub" data-mm>ပွဲစဉ်များကို မဲနှိုက်ပြီးမှ ကြေညာပါမည်။</p><p class="sub" data-zh>抽签后将公布赛程。</p>`;
