@@ -869,22 +869,26 @@
       <span class="num">06</span>
       <h2 id="audio-title"><span data-mm>တိုက်ရိုက် အသံ ဖော်ပြချက်</span><span data-zh>实时语音解说</span></h2>
     </div>
-    <div class="audio-box">
-      <div class="pulse" aria-hidden="true"></div>
-      <div class="audio-meta">
-        <div class="who">
-          <span data-mm>NotebookLM AI Commentary · 9-A vs 9-B</span>
-          <span data-zh>NotebookLM AI 解说 · 9-A 对 9-B</span>
+    <div id="audio-list">
+      <!-- Replaced by renderAudio() once clips are uploaded via the admin
+           Audio tab. Until then this placeholder card stays put. -->
+      <div class="audio-box">
+        <div class="pulse" aria-hidden="true"></div>
+        <div class="audio-meta">
+          <div class="who">
+            <span data-mm>NotebookLM AI Commentary · 9-A vs 9-B</span>
+            <span data-zh>NotebookLM AI 解说 · 9-A 对 9-B</span>
+          </div>
+          <div class="what">
+            <span data-mm>သီချင်းနှင့် Commentary</span>
+            <span data-zh>歌曲与解说</span>
+          </div>
         </div>
-        <div class="what">
-          <span data-mm>သီချင်းနှင့် Commentary</span>
-          <span data-zh>歌曲与解说</span>
-        </div>
+        <button class="listen-btn" type="button" onclick="alert(document.documentElement.getAttribute('data-lang')==='zh' ? '解说即将上线 · 请稍候' : 'အသံဖော်ပြချက် မကြာမီ ရရှိပါမည်')">
+          <span data-mm>▶ နားဆင်မည်</span>
+          <span data-zh>▶ 收听</span>
+        </button>
       </div>
-      <button class="listen-btn" type="button" onclick="alert(document.documentElement.getAttribute('data-lang')==='zh' ? '解说即将上线 · 请稍候' : 'အသံဖော်ပြချက် မကြာမီ ရရှိပါမည်')">
-        <span data-mm>▶ နားဆင်မည်</span>
-        <span data-zh>▶ 收听</span>
-      </button>
     </div>
   </div>
 </section>
@@ -1177,6 +1181,67 @@
     }).join('');
   }
 
+  // Renders real audio clips (MP3/M4A/WAV/OGG) uploaded via the admin
+  // Audio tab. Each clip gets its own play/pause button; playing one
+  // pauses any other clip that's currently playing. If data.audio is
+  // empty, this is skipped and the static placeholder card stays put.
+  function renderAudio(audioList){
+    const list = document.getElementById('audio-list');
+    if(!list || !audioList || !audioList.length) return;
+    list.innerHTML = audioList.map((a, i) => `
+      <div class="audio-box" id="audio-box-${i}">
+        <div class="pulse" aria-hidden="true"></div>
+        <div class="audio-meta">
+          <div class="who">
+            <span data-mm>${escapeHtml(a.who_mm || '')}</span>
+            <span data-zh>${escapeHtml(a.who_zh || '')}</span>
+          </div>
+          <div class="what">
+            <span data-mm>${escapeHtml(a.what_mm || '')}</span>
+            <span data-zh>${escapeHtml(a.what_zh || '')}</span>
+          </div>
+        </div>
+        <audio id="audio-el-${i}" src="${escapeHtml(a.src)}" preload="none"></audio>
+        <button class="listen-btn" type="button" onclick="toggleAudio(${i})">
+          <span data-mm>▶ နားဆင်မည်</span>
+          <span data-zh>▶ 收听</span>
+        </button>
+      </div>`).join('');
+    window.__audioItems = audioList;
+    if(typeof window.__reSyncLang === 'function') window.__reSyncLang();
+  }
+
+  function setListenLabel(btn, playing){
+    if(!btn) return;
+    btn.querySelectorAll('[data-mm]').forEach(s => s.textContent = playing ? '⏸ ရပ်မည်' : '▶ နားဆင်မည်');
+    btn.querySelectorAll('[data-zh]').forEach(s => s.textContent = playing ? '⏸ 暂停' : '▶ 收听');
+  }
+
+  function toggleAudio(i){
+    const el = document.getElementById(`audio-el-${i}`);
+    if(!el) return;
+    // Pause any other clip that's currently playing.
+    document.querySelectorAll('#audio-list audio').forEach(other => {
+      if(other !== el && !other.paused){
+        other.pause();
+        const otherIdx = other.id.replace('audio-el-', '');
+        const otherBox = document.getElementById(`audio-box-${otherIdx}`);
+        setListenLabel(otherBox && otherBox.querySelector('.listen-btn'), false);
+      }
+    });
+    const box = document.getElementById(`audio-box-${i}`);
+    const btn = box && box.querySelector('.listen-btn');
+    if(el.paused){
+      el.play();
+      setListenLabel(btn, true);
+    } else {
+      el.pause();
+      setListenLabel(btn, false);
+    }
+    el.onended = () => setListenLabel(btn, false);
+  }
+  window.toggleAudio = toggleAudio;
+
   // Render functions above are called by js/app.js (a module script, loaded
   // below) whenever Firestore data changes. They stay as plain global
   // functions here (not moved into app.js) so nothing else on the page has
@@ -1186,6 +1251,7 @@
   window.renderStandings = renderStandings;
   window.renderSchedule = renderSchedule;
   window.renderGallery = renderGallery;
+  window.renderAudio = renderAudio;
 
   function renderNextMatchCountdown(matches){
     const box = document.getElementById('next-match-countdown');
