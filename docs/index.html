@@ -1470,7 +1470,7 @@
         const rowClass = postponed ? 'cal-row is-postponed' : 'cal-row';
         const tagHtml = postponed
           ? `<span class="cal-tag postponed">🌧️ <span data-mm>ဆိုင်းငံ့</span><span data-zh>延期</span></span>`
-          : `<div class="cal-tag">${emoji}</div>`;
+          : '';
         const teamsAttr = `${(m.team_a || '').toLowerCase()} ${(m.team_b || '').toLowerCase()}`;
         const dt = parseEventDateTime(m.date, m.time);
         const tsAttr = dt ? ` data-ts="${dt.getTime()}"` : '';
