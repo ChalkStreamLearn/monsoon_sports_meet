@@ -500,9 +500,15 @@ with tab_fixtures:
             m["date"] = c1.text_input("Date (e.g. AUG 16)", m.get("date", ""), key=f"mdate{i}")
             m["time"] = c2.text_input("Time (e.g. 3:00 PM)", m.get("time", ""), key=f"mtime{i}")
 
-            c1, c2 = st.columns(2)
+            c1, c2, c3, c4 = st.columns([2.5, 1, 2.5, 1])
             m["team_a"] = c1.text_input("Team A", m.get("team_a", ""), key=f"mta{i}")
-            m["team_b"] = c2.text_input("Team B", m.get("team_b", ""), key=f"mtb{i}")
+            m["team_a_color"] = c2.color_picker(
+                "Color", m.get("team_a_color") or "#7fb3c0", key=f"mtac{i}"
+            )
+            m["team_b"] = c3.text_input("Team B", m.get("team_b", ""), key=f"mtb{i}")
+            m["team_b_color"] = c4.color_picker(
+                "Color", m.get("team_b_color") or "#c45a48", key=f"mtbc{i}"
+            )
 
             m["note_mm"] = st.text_input("Note (Burmese, optional)", m.get("note_mm", ""), key=f"mnotemm{i}")
             m["note_zh"] = st.text_input("Note (Chinese, optional)", m.get("note_zh", ""), key=f"mnotezh{i}")
@@ -524,6 +530,7 @@ with tab_fixtures:
         add_doc("matches", {
             "sport_key": add_sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
             "date": "", "time": "", "team_a": "", "team_b": "",
+            "team_a_color": "#7fb3c0", "team_b_color": "#c45a48",
             "note_mm": "", "note_zh": "", "postponed": False,
         })
         st.rerun()
@@ -577,6 +584,7 @@ with tab_fixtures:
                         "time": clean(row.get("time", "")),
                         "team_a": clean(row.get("team_1", "")),
                         "team_b": clean(row.get("team_2", "")),
+                        "team_a_color": "#7fb3c0", "team_b_color": "#c45a48",
                         "note_mm": clean(row.get("note_mm", "")),
                         "note_zh": clean(row.get("note_zh", "")),
                         "postponed": False,
