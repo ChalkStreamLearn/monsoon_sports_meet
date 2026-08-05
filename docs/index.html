@@ -722,7 +722,7 @@
       <button id="btn-mm" class="active" onclick="setLang('mm')" aria-pressed="true">မြန်မာ</button>
       <button id="btn-zh" onclick="setLang('zh')" aria-pressed="false">中文</button>
     </div>
-    <a href="downloads/MonekoeSports-v1.0.apk" download class="app-download-btn">
+    <a href="downloads/MonekoeSports-v1.0.apk" download class="app-download-btn" id="appDownloadBtn">
       📱 <span class="dl-label"><span data-mm>App ဒေါင်းလုဒ်</span><span data-zh>下载App</span></span>
     </a>
   </div>
@@ -754,7 +754,7 @@
       </div>
       <div class="meta-item">
         <div class="k mono"><span data-mm>အသင်း</span><span data-zh>参赛队伍</span></div>
-        <div class="v">Football 10 teams , Basketball 8 teams , Volleyball 5 teams</div>
+        <div class="v">Football 10 teams , Basketball 8 teams , Volleyball 6 teams</div>
       </div>
     </div>
   </div>
@@ -1613,5 +1613,16 @@
   }
 </script>
 
+<script>
+  // Hide the app-download button when the site is opened inside the wrapped
+  // Android APK (WebView-based apps include "wv" in their user agent string).
+  (function(){
+    var isWebViewApp = navigator.userAgent.indexOf('wv') !== -1;
+    var btn = document.getElementById('appDownloadBtn');
+    if(btn && isWebViewApp){
+      btn.style.display = 'none';
+    }
+  })();
+</script>
 </body>
 </html>
