@@ -125,17 +125,3 @@ onSnapshot(
   (err) => console.error("gallery listener failed:", err)
 );
 
-// ---------- Audio (live commentary clips) ----------
-// Each doc in "audio" is one uploaded clip: { src, who_mm/who_zh,
-// what_mm/what_zh, public_id, uploadedAt }. Newest clip first, same as
-// Gallery, so a freshly-uploaded commentary clip shows up at the top.
-const audioQuery = query(collection(db, "audio"), orderBy("uploadedAt", "desc"));
-onSnapshot(
-  audioQuery,
-  (snapshot) => {
-    const audio = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    window.renderAudio(audio);
-    afterRender();
-  },
-  (err) => console.error("audio listener failed:", err)
-);
