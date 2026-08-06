@@ -567,6 +567,52 @@
     line-height:1; padding:6px;
   }
 
+  /* ===== AUDIO ===== */
+  .audio-box{
+    display:flex; align-items:center; gap:22px;
+    background:linear-gradient(135deg, var(--board-light), var(--board-mid));
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:26px 28px; flex-wrap:wrap;
+    position:relative; overflow:hidden;
+  }
+  .audio-box::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:var(--court-red);
+  }
+  .pulse{
+    width:12px; height:12px; border-radius:50%;
+    background:var(--court-red); position:relative; flex:none;
+  }
+  .pulse::after{
+    content:""; position:absolute; inset:-7px; border-radius:50%;
+    border:2px solid var(--court-red);
+    animation:pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse{
+    0%{transform:scale(0.5); opacity:0.9;}
+    100%{transform:scale(1.9); opacity:0;}
+  }
+  .audio-meta{flex:1; min-width:200px;}
+  .audio-meta .who{font-size:0.76rem; color:var(--chalk-mute);}
+  .audio-meta .what{font-size:1.08rem; margin-top:3px; font-weight:600;}
+  .listen-btn{
+    background:var(--chalk-yellow); color:var(--board-dark);
+    border:none; padding:12px 24px; border-radius:var(--radius-sm);
+    font-weight:700; cursor:pointer; font-family:inherit; font-size:0.92rem;
+    transition:transform .2s, box-shadow .2s, background .2s;
+    box-shadow:0 2px 12px rgba(236,201,75,0.25);
+  }
+  .listen-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 4px 18px rgba(236,201,75,0.35);
+    background:#f0d25a;
+  }
+  .listen-btn:active{transform:translateY(0);}
+  .audio-error{
+    font-size:0.72rem; color:var(--court-red); margin-top:6px; display:none;
+  }
+  .audio-error.show{display:block;}
+
   /* ===== FOOTER ===== */
   footer{
     border-top:1px solid var(--line);
@@ -642,6 +688,8 @@
     }
     .cal-row .cal-tag{justify-self:flex-start;}
     .gallery-grid{grid-template-columns:repeat(2,1fr); gap:10px;}
+    .audio-box{padding:20px; gap:14px;}
+    .listen-btn{width:100%;}
     .cal-export-row{justify-content:stretch;}
     .cal-export-btn{width:100%; justify-content:center;}
     footer .wrap{flex-direction:column; text-align:center; gap:8px;}
@@ -668,6 +716,7 @@
       <a href="#schedule"><span data-mm>အစီအစဉ်</span><span data-zh>赛程</span></a>
       <a href="#matches"><span data-mm>ပွဲစဉ်ဇယား</span><span data-zh>比赛赛程</span></a>
       <a href="#gallery"><span data-mm>ပုံ/ဗီဒီယို</span><span data-zh>照片/视频</span></a>
+      <a href="#audio"><span data-mm>တိုက်ရိုက်အသံ</span><span data-zh>实时解说</span></a>
     </div>
     <div class="langtoggle" role="group" aria-label="Language">
       <button id="btn-mm" class="active" onclick="setLang('mm')" aria-pressed="true">မြန်မာ</button>
@@ -689,7 +738,7 @@
       <span data-zh>雨季运动会</span>
     </div>
     <h1 class="title">
-      <span data-mm>မုံးကိုးခရိုင် <span class="accent">မိုးရာသီအားကစားပွဲတော် ၂၀၂၆</span></span>
+      <span data-mm>မုံးကိုးခရိုင် <span class="accent">မိုးရာသီအားကစားပွဲတော်မှ ကြိုဆိုပါ၏</span></span>
       <span data-zh>勐古县<span class="accent">欢迎来到雨季运动会</span></span>
     </h1>
     <p class="subtitle" data-mm>ဘောလီဘော · ဘတ်စကက်ဘော · ဘောလုံး — ပွဲစဉ်တွေကို တိုက်ရိုက်ရလဒ်၊ ဇယား၊ ဓာတ်ပုံနဲ့ တိုက်ရိုက်အသံပါ တစ်နေရာတည်းမှာ လိုက်ကြည့်ပါ။</p>
@@ -705,7 +754,7 @@
       </div>
       <div class="meta-item">
         <div class="k mono"><span data-mm>အသင်း</span><span data-zh>参赛队伍</span></div>
-        <div class="v">Football 10 teams , Basketball 8 teams , Volleyball 5 teams</div>
+        <div class="v">Football 10 teams , Basketball 8 teams , Volleyball 6 teams</div>
       </div>
     </div>
   </div>
@@ -853,6 +902,36 @@
   <button class="lb-close" aria-label="Close" onclick="closeLightbox()">&times;</button>
   <div id="lightbox-content"></div>
 </div>
+
+<section id="audio" aria-labelledby="audio-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="num">06</span>
+      <h2 id="audio-title"><span data-mm>တိုက်ရိုက် အသံ ဖော်ပြချက်</span><span data-zh>实时语音解说</span></h2>
+    </div>
+    <div id="audio-list">
+      <!-- Replaced by renderAudio() once clips are uploaded via the admin
+           Audio tab. Until then this placeholder card stays put. -->
+      <div class="audio-box">
+        <div class="pulse" aria-hidden="true"></div>
+        <div class="audio-meta">
+          <div class="who">
+            <span data-mm>NotebookLM AI Commentary · 9-A vs 9-B</span>
+            <span data-zh>NotebookLM AI 解说 · 9-A 对 9-B</span>
+          </div>
+          <div class="what">
+            <span data-mm>သီချင်းနှင့် Commentary</span>
+            <span data-zh>歌曲与解说</span>
+          </div>
+        </div>
+        <button class="listen-btn" type="button" onclick="alert(document.documentElement.getAttribute('data-lang')==='zh' ? '解说即将上线 · 请稍候' : 'အသံဖော်ပြချက် မကြာမီ ရရှိပါမည်')">
+          <span data-mm>▶ နားဆင်မည်</span>
+          <span data-zh>▶ 收听</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
 
 <footer>
   <div class="wrap">
@@ -1219,6 +1298,113 @@
     }).join('');
   }
 
+  // Renders real audio clips (MP3/M4A/WAV/OGG) uploaded via the admin
+  // Audio tab. Each clip gets its own play/pause button; playing one
+  // pauses any other clip that's currently playing. If data.audio is
+  // empty, this is skipped and the static placeholder card stays put.
+  // Each clip also carries a small hidden <div class="audio-error"> that
+  // is only revealed if the browser's <audio> element actually fails to
+  // load the src (bad URL, blocked host, unsupported format, etc.) — this
+  // turns a silent "nothing happens when I press play" into a visible,
+  // readable reason.
+  function audioErrorText(mediaError){
+    if(!mediaError) return null;
+    switch(mediaError.code){
+      case mediaError.MEDIA_ERR_NETWORK:
+        return {mm: 'ကွန်ရက် ပြဿနာကြောင့် အသံဖိုင် မဖွင့်နိုင်ပါ (URL ကို block/slow ဖြစ်နေနိုင်သည်)', zh: '网络问题，无法加载音频（链接可能被屏蔽或很慢）'};
+      case mediaError.MEDIA_ERR_DECODE:
+        return {mm: 'အသံဖိုင် format ပျက်နေသည် (decode error)', zh: '音频文件格式错误（解码失败）'};
+      case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+        return {mm: 'အသံဖိုင် URL မှားနေသည် (ဒါမှမဟုတ်) ဒီ format ကို browser က support မလုပ်ပါ', zh: '音频链接错误，或浏览器不支持该格式'};
+      default:
+        return {mm: 'အသံဖိုင် ဖွင့်၍မရပါ', zh: '无法播放音频'};
+    }
+  }
+  function renderAudio(audioList){
+    const list = document.getElementById('audio-list');
+    if(!list || !audioList || !audioList.length) return;
+    list.innerHTML = audioList.map((a, i) => `
+      <div class="audio-box" id="audio-box-${i}">
+        <div class="pulse" aria-hidden="true"></div>
+        <div class="audio-meta">
+          <div class="who">
+            <span data-mm>${escapeHtml(a.who_mm || '')}</span>
+            <span data-zh>${escapeHtml(a.who_zh || '')}</span>
+          </div>
+          <div class="what">
+            <span data-mm>${escapeHtml(a.what_mm || '')}</span>
+            <span data-zh>${escapeHtml(a.what_zh || '')}</span>
+          </div>
+          <div class="audio-error" id="audio-error-${i}"></div>
+        </div>
+        <audio id="audio-el-${i}" src="${escapeHtml(a.src)}" preload="none"></audio>
+        <button class="listen-btn" type="button" onclick="toggleAudio(${i})">
+          <span data-mm>▶ နားဆင်မည်</span>
+          <span data-zh>▶ 收听</span>
+        </button>
+      </div>`).join('');
+    window.__audioItems = audioList;
+    // Wire up error listeners now that the <audio> elements exist in the DOM.
+    audioList.forEach((a, i) => {
+      const el = document.getElementById(`audio-el-${i}`);
+      const errBox = document.getElementById(`audio-error-${i}`);
+      if(!el || !errBox) return;
+      el.addEventListener('error', () => {
+        const msg = audioErrorText(el.error);
+        if(!msg) return;
+        const lang = document.documentElement.getAttribute('data-lang') || 'mm';
+        errBox.textContent = lang === 'zh' ? msg.zh : msg.mm;
+        errBox.classList.add('show');
+        console.error(`audio[${i}] failed to load:`, a.src, el.error);
+      });
+    });
+    if(typeof window.__reSyncLang === 'function') window.__reSyncLang();
+  }
+
+  function setListenLabel(btn, playing){
+    if(!btn) return;
+    btn.querySelectorAll('[data-mm]').forEach(s => s.textContent = playing ? '⏸ ရပ်မည်' : '▶ နားဆင်မည်');
+    btn.querySelectorAll('[data-zh]').forEach(s => s.textContent = playing ? '⏸ 暂停' : '▶ 收听');
+  }
+
+  function toggleAudio(i){
+    const el = document.getElementById(`audio-el-${i}`);
+    if(!el) return;
+    // Pause any other clip that's currently playing.
+    document.querySelectorAll('#audio-list audio').forEach(other => {
+      if(other !== el && !other.paused){
+        other.pause();
+        const otherIdx = other.id.replace('audio-el-', '');
+        const otherBox = document.getElementById(`audio-box-${otherIdx}`);
+        setListenLabel(otherBox && otherBox.querySelector('.listen-btn'), false);
+      }
+    });
+    const box = document.getElementById(`audio-box-${i}`);
+    const btn = box && box.querySelector('.listen-btn');
+    if(el.paused){
+      const playPromise = el.play();
+      if(playPromise && typeof playPromise.catch === 'function'){
+        playPromise.then(() => setListenLabel(btn, true)).catch(err => {
+          console.error(`audio[${i}] play() rejected:`, err);
+          const errBox = document.getElementById(`audio-error-${i}`);
+          if(errBox){
+            const lang = document.documentElement.getAttribute('data-lang') || 'mm';
+            errBox.textContent = lang === 'zh' ? `播放失败：${err.message || err.name}` : `ဖွင့်လို့မရပါ: ${err.message || err.name}`;
+            errBox.classList.add('show');
+          }
+          setListenLabel(btn, false);
+        });
+      } else {
+        setListenLabel(btn, true);
+      }
+    } else {
+      el.pause();
+      setListenLabel(btn, false);
+    }
+    el.onended = () => setListenLabel(btn, false);
+  }
+  window.toggleAudio = toggleAudio;
+
   // Render functions above are called by js/app.js (a module script, loaded
   // below) whenever Firestore data changes. They stay as plain global
   // functions here (not moved into app.js) so nothing else on the page has
@@ -1228,6 +1414,7 @@
   window.renderStandings = renderStandings;
   window.renderSchedule = renderSchedule;
   window.renderGallery = renderGallery;
+  window.renderAudio = renderAudio;
 
   function renderNextMatchCountdown(matches){
     const box = document.getElementById('next-match-countdown');
