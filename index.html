@@ -716,7 +716,6 @@
       <a href="#schedule"><span data-mm>အစီအစဉ်</span><span data-zh>赛程</span></a>
       <a href="#matches"><span data-mm>ပွဲစဉ်ဇယား</span><span data-zh>比赛赛程</span></a>
       <a href="#gallery"><span data-mm>ပုံ/ဗီဒီယို</span><span data-zh>照片/视频</span></a>
-      <a href="#audio"><span data-mm>တိုက်ရိုက်အသံ</span><span data-zh>实时解说</span></a>
     </div>
     <div class="langtoggle" role="group" aria-label="Language">
       <button id="btn-mm" class="active" onclick="setLang('mm')" aria-pressed="true">မြန်မာ</button>
@@ -902,36 +901,6 @@
   <button class="lb-close" aria-label="Close" onclick="closeLightbox()">&times;</button>
   <div id="lightbox-content"></div>
 </div>
-
-<section id="audio" aria-labelledby="audio-title">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="num">06</span>
-      <h2 id="audio-title"><span data-mm>တိုက်ရိုက် အသံ ဖော်ပြချက်</span><span data-zh>实时语音解说</span></h2>
-    </div>
-    <div id="audio-list">
-      <!-- Replaced by renderAudio() once clips are uploaded via the admin
-           Audio tab. Until then this placeholder card stays put. -->
-      <div class="audio-box">
-        <div class="pulse" aria-hidden="true"></div>
-        <div class="audio-meta">
-          <div class="who">
-            <span data-mm>NotebookLM AI Commentary · 9-A vs 9-B</span>
-            <span data-zh>NotebookLM AI 解说 · 9-A 对 9-B</span>
-          </div>
-          <div class="what">
-            <span data-mm>သီချင်းနှင့် Commentary</span>
-            <span data-zh>歌曲与解说</span>
-          </div>
-        </div>
-        <button class="listen-btn" type="button" onclick="alert(document.documentElement.getAttribute('data-lang')==='zh' ? '解说即将上线 · 请稍候' : 'အသံဖော်ပြချက် မကြာမီ ရရှိပါမည်')">
-          <span data-mm>▶ နားဆင်မည်</span>
-          <span data-zh>▶ 收听</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</section>
 
 <footer>
   <div class="wrap">
