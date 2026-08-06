@@ -63,39 +63,18 @@ onSnapshot(
 );
 
 // ---------- Match fixtures ----------
-// Cached so the "Teams" listener below can re-render fixtures with fresh
-// colors without needing its own copy of the match data.
-let __latestMatches = [];
+// Match documents contain their own team_a_color and team_b_color fields.
+// No separate teams collection is needed; the match renderer uses those
+// colors directly for each fixture.
 const matchesQuery = query(collection(db, "matches"), orderBy("order"));
 onSnapshot(
   matchesQuery,
   (snapshot) => {
-    __latestMatches = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    window.renderMatches(__latestMatches);
+    const matches = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    window.renderMatches(matches);
     afterRender();
   },
   (err) => console.error("matches listener failed:", err)
-);
-
-// ---------- Teams (colors) ----------
-// Each doc in "teams" is one team: { name, color }. Set once per team in
-// the admin panel's "Teams" tab — every fixture/score chip for that team
-// picks it up automatically, everywhere on the site.
-const teamsQuery = query(collection(db, "teams"));
-onSnapshot(
-  teamsQuery,
-  (snapshot) => {
-    const colorMap = {};
-    snapshot.docs.forEach((doc) => {
-      const d = doc.data();
-      if (d.name) colorMap[d.name] = d.color;
-    });
-    window.setTeamColors(colorMap);
-    // Re-render fixtures now that colors are (or just changed) available.
-    window.renderMatches(__latestMatches);
-    afterRender();
-  },
-  (err) => console.error("teams listener failed:", err)
 );
 
 // ---------- Standings ----------
