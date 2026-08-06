@@ -9,7 +9,7 @@
 //
 // Bump CACHE_NAME whenever you change which files are precached, so old
 // clients don't get stuck serving a stale shell forever.
-const CACHE_NAME = 'chalkstream-shell-v2';
+const CACHE_NAME = 'chalkstream-shell-v3';
 const PRECACHE_URLS = [
   './',
   './index.html',
