@@ -9,7 +9,7 @@
 //
 // Bump CACHE_NAME whenever you change which files are precached, so old
 // clients don't get stuck serving a stale shell forever.
-const CACHE_NAME = 'chalkstream-shell-v1';
+const CACHE_NAME = 'chalkstream-shell-v2';
 const PRECACHE_URLS = [
   './',
   './index.html',
@@ -39,12 +39,39 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first for same-origin static shell files; everything else
-// (Firestore, Cloudinary, Google Fonts) goes straight to the network so
-// live data is never served stale from this cache.
+// HTML page navigations: network-first, so edits to index.html show up
+// immediately on the next load instead of waiting for a CACHE_NAME bump.
+// Falls back to the cached shell only if the network request fails
+// (offline / flaky connection).
+//
+// Other same-origin static assets (css/js/icons): cache-first, since those
+// rarely change and cache-first keeps the site feeling instant.
+//
+// Cross-origin requests (Firestore, Cloudinary, Google Fonts) always go
+// straight to the network so live data is never served stale from here.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+
+  const isNavigation =
+    event.request.mode === 'navigate' ||
+    (event.request.method === 'GET' &&
+      event.request.headers.get('accept')?.includes('text/html'));
+
+  if (isNavigation) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
