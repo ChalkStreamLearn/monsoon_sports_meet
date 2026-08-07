@@ -544,6 +544,17 @@
   }
   .gcard.has-media .cap{background:transparent; backdrop-filter:none; padding:0;}
   .gcard.has-media{cursor:zoom-in;}
+  .media-download{
+    position:absolute; right:12px; top:12px; z-index:3;
+    display:inline-flex; align-items:center; gap:5px;
+    padding:5px 9px; border-radius:99px;
+    background:var(--chalk-yellow); color:var(--board-dark);
+    font-size:0.68rem; font-weight:700; text-decoration:none;
+    box-shadow:0 2px 8px rgba(0,0,0,0.24);
+  }
+  .media-download:hover{
+    filter:brightness(1.08); transform:translateY(-1px);
+  }
 
   /* ===== GALLERY LIGHTBOX ===== */
   .lightbox{
@@ -1217,6 +1228,7 @@
       return `
       <div class="gcard has-media" onclick="openLightbox(${i})">
         ${mediaEl}
+        ${isVideo ? `<a class="media-download" href="${escapeHtml(g.src)}" download onclick="event.stopPropagation()"><span data-mm>⬇ ဒေါင်းလုဒ်</span><span data-zh>⬇ 下载</span></a>` : ''}
         <span class="tag">${tagEmoji} <span data-mm>${escapeHtml(g.tag_mm || '')}</span><span data-zh>${escapeHtml(g.tag_zh || '')}</span></span>
         <div class="cap"><span data-mm>${escapeHtml(g.cap_mm || '')}</span><span data-zh>${escapeHtml(g.cap_zh || '')}</span></div>
       </div>`;
