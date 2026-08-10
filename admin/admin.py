@@ -463,6 +463,52 @@ with tab_fixtures:
         "volleyball": ("🏐", "ဘောလီဘော", "排球"),
         "basketball": ("🏀", "ဘတ်စကက်ဘော", "篮球"),
     }
+
+    # Preset team colors, keyed by township. Used both here (manual dropdown
+    # picker) and in the bulk-import section below (auto-match by name) — so
+    # the same township always gets the same color everywhere.
+    TEAM_COLORS = {
+        "မုံးကိုးမြို့နယ်(A)": "#1E88E5",
+        "မုံးကိုးမြို့နယ်(B)": "#64B5F6",
+        "မုံးစီးမြို့နယ်": "#43A047",
+        "နမ့်ကျွမ်းမြို့နယ်": "#FB8C00",
+        "မုံးပေါ်မြို့နယ်(A)": "#8E24AA",
+        "မုံးပေါ်မြို့နယ်(B)": "#CE93D8",
+        "မုံးပေါ်(ပန်ဆိုင်း)": "#87CEEB",
+        "မုံးဟွမ်မြို့နယ်": "#E53935",
+        "မုံးကိုး(ဖောင်းဆိုင်)": "#00897B",
+        "မုံးကိုး(ရေပူ)": "#6D4C41",
+        "ခရိုင်လှုပ်ရှားတပ်ဖွဲ့": "#455A64",
+        "မုံးကိုးယွိချိုက်(A)": "#FDD835",
+        "မုံးကိုးယွိချိုက်(B)": "#FFF176",
+        "မုံးကိုးမြို့နယ်": "#1E88E5",
+        "မုံးကိုးခရိုင်ရုံး": "#3949AB",
+        "မုံးပေါ်မြို့နယ်": "#8E24AA",
+    }
+    CUSTOM_COLOR_LABEL = "🎨 Custom (pick manually)"
+    COLOR_PRESET_LABELS = list(TEAM_COLORS.keys()) + [CUSTOM_COLOR_LABEL]
+
+    def label_for_color(hex_color):
+        """Reverse-lookup: given a stored hex, find which preset it matches
+        (so the dropdown shows the right preset already selected)."""
+        for name, hexval in TEAM_COLORS.items():
+            if hexval.lower() == (hex_color or "").lower():
+                return name
+        return CUSTOM_COLOR_LABEL
+
+    def resolve_team_color(name, fallback):
+        """Auto-match a team name cell (bulk import) against TEAM_COLORS —
+        exact match first, then 'does the cell contain this township name'."""
+        name = (name or "").strip()
+        if not name:
+            return fallback
+        if name in TEAM_COLORS:
+            return TEAM_COLORS[name]
+        for key, color in TEAM_COLORS.items():
+            if key in name:
+                return color
+        return fallback
+
     matches = load_collection("matches")
 
     sport_filter = st.radio(
@@ -508,15 +554,30 @@ with tab_fixtures:
             m["date"] = c1.text_input("Date (e.g. AUG 16)", m.get("date", ""), key=f"mdate{i}")
             m["time"] = c2.text_input("Time (e.g. 3:00 PM)", m.get("time", ""), key=f"mtime{i}")
 
-            c1, c2, c3, c4 = st.columns([2.5, 1, 2.5, 1])
+            c1, c2, c3, c4 = st.columns([2.5, 1.3, 2.5, 1.3])
             m["team_a"] = c1.text_input("Team A", m.get("team_a", ""), key=f"mta{i}")
-            m["team_a_color"] = c2.color_picker(
-                "Color", m.get("team_a_color") or "#7fb3c0", key=f"mtac{i}"
+            cur_a = m.get("team_a_color") or "#7fb3c0"
+            label_a = c2.selectbox(
+                "Color A", COLOR_PRESET_LABELS,
+                index=COLOR_PRESET_LABELS.index(label_for_color(cur_a)),
+                key=f"mtacsel{i}",
             )
+            if label_a == CUSTOM_COLOR_LABEL:
+                m["team_a_color"] = c2.color_picker("Custom A", cur_a, key=f"mtac{i}")
+            else:
+                m["team_a_color"] = TEAM_COLORS[label_a]
+
             m["team_b"] = c3.text_input("Team B", m.get("team_b", ""), key=f"mtb{i}")
-            m["team_b_color"] = c4.color_picker(
-                "Color", m.get("team_b_color") or "#c45a48", key=f"mtbc{i}"
+            cur_b = m.get("team_b_color") or "#c45a48"
+            label_b = c4.selectbox(
+                "Color B", COLOR_PRESET_LABELS,
+                index=COLOR_PRESET_LABELS.index(label_for_color(cur_b)),
+                key=f"mtbcsel{i}",
             )
+            if label_b == CUSTOM_COLOR_LABEL:
+                m["team_b_color"] = c4.color_picker("Custom B", cur_b, key=f"mtbc{i}")
+            else:
+                m["team_b_color"] = TEAM_COLORS[label_b]
 
             m["note_mm"] = st.text_input("Note (Burmese, optional)", m.get("note_mm", ""), key=f"mnotemm{i}")
             m["note_zh"] = st.text_input("Note (Chinese, optional)", m.get("note_zh", ""), key=f"mnotezh{i}")
@@ -547,12 +608,44 @@ with tab_fixtures:
         save_collection_order("matches", matches)
         st.success("Saved — live site will update within a couple seconds.")
 
+    # (TEAM_COLORS and resolve_team_color are already defined above, near the
+    # manual color-preset picker — reused here for bulk import auto-color.)
+
+    # Accepts either the English column names the importer originally used,
+    # or the Burmese headers from the Numbers fixtures template — so Chaw Su
+    # can export straight from Numbers without renaming columns first.
+    COLUMN_ALIASES = {
+        "date": ["date", "ရက်စွဲ"],
+        "time": ["time", "အချိန်"],
+        "team_1": ["team_1", "team1", "အသင်း a", "အသင်း-a"],
+        "team_2": ["team_2", "team2", "အသင်း b", "အသင်း-b"],
+        "note_mm": ["note_mm", "မှတ်ချက်", "ပွဲအမျိုးအစား"],
+        "note_zh": ["note_zh"],
+        "sport": ["sport"],
+    }
+
+    def get_col(row, cols_lower, field):
+        for alias in COLUMN_ALIASES[field]:
+            if alias in cols_lower:
+                return row[cols_lower[alias]]
+        return None
+
     st.divider()
     with st.expander("📥 Bulk import from Excel", expanded=bool(st.session_state.get("fixture_import_msg"))):
         st.caption(
-            "Upload a .xlsx file with columns: sport, date, time, team_1, team_2, "
-            "note_mm (optional), note_zh (optional). sport must be exactly "
-            "'football', 'volleyball', or 'basketball'. Each row becomes one match."
+            "Upload a .xlsx file with columns: date, time, team_1, team_2, "
+            "note_mm (optional), note_zh (optional) — Burmese headers from the "
+            "Numbers template (ရက်စွဲ / အချိန် / အသင်း A / အသင်း B) also work. "
+            "Team colors are filled in automatically from the township name. "
+            "For two matches on the same day, add two rows with the same date "
+            "but a different time (e.g. 9:00 AM and 4:00 PM)."
+        )
+        import_sport = st.selectbox(
+            "Sport for this file (used for every row, unless the file has its "
+            "own 'sport' column)",
+            list(SPORT_OPTIONS.keys()),
+            format_func=lambda k: f"{SPORT_OPTIONS[k][0]} {SPORT_OPTIONS[k][1]}",
+            key="bulk_import_sport",
         )
 
         # Show the result of the last import — persisted across the rerun that
@@ -575,40 +668,45 @@ with tab_fixtures:
                 st.error(f"Couldn't read that file: {e}")
                 df = None
             if df is not None:
+                cols_lower = {str(c).strip().lower(): c for c in df.columns}
+
+                def clean(val):
+                    return "" if val is None or pd.isna(val) else str(val).strip()
+
                 imported, skipped = 0, 0
                 for _, row in df.iterrows():
-                    sport = str(row.get("sport", "")).strip().lower()
+                    sport_raw = get_col(row, cols_lower, "sport")
+                    sport = clean(sport_raw).lower() if sport_raw is not None else ""
                     if sport not in SPORT_OPTIONS:
-                        skipped += 1
-                        continue
+                        sport = import_sport  # no per-row sport column — use the picker above
                     emoji, mm, zh = SPORT_OPTIONS[sport]
 
-                    def clean(val):
-                        return "" if pd.isna(val) else str(val).strip()
-
-                    team_a_val = clean(row.get("team_1", ""))
-                    # Rest Day rows (team_1 starts with "Rest Day", or time/
-                    # match_no is a placeholder "-") aren't real matches —
-                    # skip them so they don't show up as a match card.
-                    if team_a_val.startswith("Rest Day") or clean(row.get("time", "")) == "-":
+                    team_a_val = clean(get_col(row, cols_lower, "team_1"))
+                    time_val = clean(get_col(row, cols_lower, "time"))
+                    # Rest Day rows (team_1 starts with "Rest Day", or time
+                    # is a placeholder "-") aren't real matches — skip them
+                    # so they don't show up as a match card.
+                    if team_a_val.startswith("Rest Day") or time_val == "-" or not team_a_val:
                         skipped += 1
                         continue
 
+                    team_b_val = clean(get_col(row, cols_lower, "team_2"))
                     add_doc("matches", {
                         "sport_key": sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
-                        "date": clean(row.get("date", "")),
-                        "time": clean(row.get("time", "")),
+                        "date": clean(get_col(row, cols_lower, "date")),
+                        "time": time_val,
                         "team_a": team_a_val,
-                        "team_b": clean(row.get("team_2", "")),
-                        "team_a_color": "#7fb3c0", "team_b_color": "#c45a48",
-                        "note_mm": clean(row.get("note_mm", "")),
-                        "note_zh": clean(row.get("note_zh", "")),
+                        "team_b": team_b_val,
+                        "team_a_color": resolve_team_color(team_a_val, "#7fb3c0"),
+                        "team_b_color": resolve_team_color(team_b_val, "#c45a48"),
+                        "note_mm": clean(get_col(row, cols_lower, "note_mm")),
+                        "note_zh": clean(get_col(row, cols_lower, "note_zh")),
                         "postponed": False,
                     })
                     imported += 1
                 msg = f"Imported {imported} match(es)."
                 if skipped:
-                    msg += f" Skipped {skipped} row(s) with an unrecognized 'sport' value."
+                    msg += f" Skipped {skipped} row(s) (Rest Day or missing team name)."
                 st.session_state["fixture_import_msg"] = msg
                 # Force the uploader to reset to empty on the next run.
                 st.session_state["fixture_uploader_gen"] = st.session_state.get("fixture_uploader_gen", 0) + 1
