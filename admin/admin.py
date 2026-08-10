@@ -586,11 +586,19 @@ with tab_fixtures:
                     def clean(val):
                         return "" if pd.isna(val) else str(val).strip()
 
+                    team_a_val = clean(row.get("team_1", ""))
+                    # Rest Day rows (team_1 starts with "Rest Day", or time/
+                    # match_no is a placeholder "-") aren't real matches —
+                    # skip them so they don't show up as a match card.
+                    if team_a_val.startswith("Rest Day") or clean(row.get("time", "")) == "-":
+                        skipped += 1
+                        continue
+
                     add_doc("matches", {
                         "sport_key": sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
                         "date": clean(row.get("date", "")),
                         "time": clean(row.get("time", "")),
-                        "team_a": clean(row.get("team_1", "")),
+                        "team_a": team_a_val,
                         "team_b": clean(row.get("team_2", "")),
                         "team_a_color": "#7fb3c0", "team_b_color": "#c45a48",
                         "note_mm": clean(row.get("note_mm", "")),
