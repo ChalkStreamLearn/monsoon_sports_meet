@@ -566,6 +566,15 @@
     background:none; border:none; cursor:pointer;
     line-height:1; padding:6px;
   }
+  .lightbox-dl-btn{
+    display:inline-flex; align-items:center; gap:8px;
+    position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    background:var(--chalk-yellow); color:var(--board-dark);
+    font-weight:600; font-size:0.92rem;
+    padding:10px 20px; border-radius:var(--radius-sm);
+    text-decoration:none; cursor:pointer;
+  }
+  .lightbox-dl-btn:hover{opacity:0.9;}
 
   /* ===== AUDIO ===== */
   .audio-box{
@@ -1229,7 +1238,8 @@
     if(!g) return;
     const isVideo = g.type === 'video';
     const el = isVideo
-      ? `<video src="${escapeHtml(g.src)}" controls autoplay playsinline></video>`
+      ? `<video src="${escapeHtml(g.src)}" controls autoplay playsinline></video>
+         <a class="lightbox-dl-btn" href="${escapeHtml(g.src)}" download target="_blank" rel="noopener">⬇ <span data-mm>ဗီဒီယို Download</span><span data-zh>下载视频</span></a>`
       : `<img src="${escapeHtml(g.src)}" alt="${escapeHtml(g.cap_mm || g.cap_zh || '')}">`;
     document.getElementById('lightbox-content').innerHTML = el;
     document.getElementById('lightbox').classList.add('open');
