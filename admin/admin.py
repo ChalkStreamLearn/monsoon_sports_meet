@@ -62,7 +62,6 @@ CLOUDINARY_API_SECRET = st.secrets.get("CLOUDINARY_API_SECRET", os.environ.get("
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 VIDEO_EXTS = {".mp4", ".webm", ".mov", ".m4v"}
-AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".aac"}
 MAX_UPLOAD_MB = 60  # soft warning threshold — keep files light for slow wifi
 
 STATUS_OPTIONS = ["live", "upcoming", "ended"]
@@ -155,20 +154,13 @@ def delete_doc(name, doc_id):
 def save_upload_to_storage(uploaded_file, folder="gallery"):
     """Upload a file to Cloudinary (unsigned preset), return (public_url, public_id, kind)."""
     ext = Path(uploaded_file.name).suffix.lower()
-    kind = (
-        "video" if ext in VIDEO_EXTS
-        else "photo" if ext in IMAGE_EXTS
-        else "audio" if ext in AUDIO_EXTS
-        else None
-    )
+    kind = "video" if ext in VIDEO_EXTS else "photo" if ext in IMAGE_EXTS else None
     if kind is None:
         return None, None, None
 
     safe_name = f"{int(time.time())}-{uuid.uuid4().hex[:6]}"
     content_type, _ = mimetypes.guess_type(uploaded_file.name)
-    # Cloudinary has no separate "audio" resource type — audio files upload
-    # and stream fine under "video", same as clips.
-    resource_type = "video" if kind in ("video", "audio") else "image"
+    resource_type = "video" if kind == "video" else "image"
 
     resp = requests.post(
         f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/{resource_type}/upload",
@@ -190,7 +182,7 @@ def delete_from_cloudinary(public_id, kind):
     """Delete a file from Cloudinary. Requires CLOUDINARY_API_KEY/SECRET (admin API); no-ops otherwise."""
     if not public_id or not (CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET):
         return False
-    resource_type = "video" if kind in ("video", "audio") else "image"
+    resource_type = "video" if kind == "video" else "image"
     resp = requests.delete(
         f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/resources/{resource_type}/upload",
         auth=(CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET),
@@ -218,11 +210,24 @@ def save_branding(data):
     db.collection("branding").document("main").set(data, merge=True)
 
 
+def _is_light(hex_color):
+    """True if a hex color is light enough that dark text reads better on
+    it than light text — used to pick readable text for team swatches."""
+    c = (hex_color or "").lstrip("#")
+    if len(c) == 3:
+        c = "".join(ch * 2 for ch in c)
+    try:
+        r, g, b = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    except ValueError:
+        return True
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6
+
+
 st.title("🏐 ChalkStream Admin")
 st.caption("Edits Firestore directly — changes appear on the live site within seconds.")
 
-tab_scores, tab_standings, tab_schedule, tab_fixtures, tab_gallery, tab_audio, tab_branding = st.tabs(
-    ["Live Scores", "Standings", "Event Schedule", "Match Fixtures", "Gallery", "Audio", "Branding"]
+tab_scores, tab_standings, tab_schedule, tab_fixtures, tab_teams, tab_gallery, tab_branding = st.tabs(
+    ["Live Scores", "Standings", "Event Schedule", "Match Fixtures", "Teams", "Gallery", "Branding"]
 )
 
 # ---------- SCORES TAB ----------
@@ -432,17 +437,12 @@ with tab_schedule:
             ev["tag_mm"] = c1.text_input("Tag (Burmese/emoji)", ev.get("tag_mm", ""), key=f"tagmm{i}")
             ev["tag_zh"] = c2.text_input("Tag (Chinese/emoji)", ev.get("tag_zh", ""), key=f"tagzh{i}")
 
-            ev["postponed"] = st.checkbox(
-                "🌧️ Postponed / rain delay (shows a red badge on the site)",
-                ev.get("postponed", False), key=f"postponed_ev{i}"
-            )
-
     st.divider()
     if st.button("➕ Add new schedule row"):
         add_doc("schedule", {
             "date": "", "title_mm": "", "title_zh": "",
             "sub_mm": "", "sub_zh": "", "tag_mm": "", "tag_zh": "",
-            "is_emoji_tag": False, "postponed": False
+            "is_emoji_tag": False
         })
         st.rerun()
 
@@ -463,52 +463,6 @@ with tab_fixtures:
         "volleyball": ("🏐", "ဘောလီဘော", "排球"),
         "basketball": ("🏀", "ဘတ်စကက်ဘော", "篮球"),
     }
-
-    # Preset team colors, keyed by township. Used both here (manual dropdown
-    # picker) and in the bulk-import section below (auto-match by name) — so
-    # the same township always gets the same color everywhere.
-    TEAM_COLORS = {
-        "မုံးကိုးမြို့နယ်(A)": "#1E88E5",
-        "မုံးကိုးမြို့နယ်(B)": "#64B5F6",
-        "မုံးစီးမြို့နယ်": "#43A047",
-        "နမ့်ကျွမ်းမြို့နယ်": "#FB8C00",
-        "မုံးပေါ်မြို့နယ်(A)": "#8E24AA",
-        "မုံးပေါ်မြို့နယ်(B)": "#CE93D8",
-        "မုံးပေါ်(ပန်ဆိုင်း)": "#87CEEB",
-        "မုံးဟွမ်မြို့နယ်": "#E53935",
-        "မုံးကိုး(ဖောင်းဆိုင်)": "#00897B",
-        "မုံးကိုး(ရေပူ)": "#6D4C41",
-        "ခရိုင်လှုပ်ရှားတပ်ဖွဲ့": "#455A64",
-        "မုံးကိုးယွိချိုက်(A)": "#FDD835",
-        "မုံးကိုးယွိချိုက်(B)": "#FFF176",
-        "မုံးကိုးမြို့နယ်": "#1E88E5",
-        "မုံးကိုးခရိုင်ရုံး": "#3949AB",
-        "မုံးပေါ်မြို့နယ်": "#8E24AA",
-    }
-    CUSTOM_COLOR_LABEL = "🎨 Custom (pick manually)"
-    COLOR_PRESET_LABELS = list(TEAM_COLORS.keys()) + [CUSTOM_COLOR_LABEL]
-
-    def label_for_color(hex_color):
-        """Reverse-lookup: given a stored hex, find which preset it matches
-        (so the dropdown shows the right preset already selected)."""
-        for name, hexval in TEAM_COLORS.items():
-            if hexval.lower() == (hex_color or "").lower():
-                return name
-        return CUSTOM_COLOR_LABEL
-
-    def resolve_team_color(name, fallback):
-        """Auto-match a team name cell (bulk import) against TEAM_COLORS —
-        exact match first, then 'does the cell contain this township name'."""
-        name = (name or "").strip()
-        if not name:
-            return fallback
-        if name in TEAM_COLORS:
-            return TEAM_COLORS[name]
-        for key, color in TEAM_COLORS.items():
-            if key in name:
-                return color
-        return fallback
-
     matches = load_collection("matches")
 
     sport_filter = st.radio(
@@ -554,38 +508,12 @@ with tab_fixtures:
             m["date"] = c1.text_input("Date (e.g. AUG 16)", m.get("date", ""), key=f"mdate{i}")
             m["time"] = c2.text_input("Time (e.g. 3:00 PM)", m.get("time", ""), key=f"mtime{i}")
 
-            c1, c2, c3, c4 = st.columns([2.5, 1.3, 2.5, 1.3])
+            c1, c2 = st.columns(2)
             m["team_a"] = c1.text_input("Team A", m.get("team_a", ""), key=f"mta{i}")
-            cur_a = m.get("team_a_color") or "#7fb3c0"
-            label_a = c2.selectbox(
-                "Color A", COLOR_PRESET_LABELS,
-                index=COLOR_PRESET_LABELS.index(label_for_color(cur_a)),
-                key=f"mtacsel{i}",
-            )
-            if label_a == CUSTOM_COLOR_LABEL:
-                m["team_a_color"] = c2.color_picker("Custom A", cur_a, key=f"mtac{i}")
-            else:
-                m["team_a_color"] = TEAM_COLORS[label_a]
-
-            m["team_b"] = c3.text_input("Team B", m.get("team_b", ""), key=f"mtb{i}")
-            cur_b = m.get("team_b_color") or "#c45a48"
-            label_b = c4.selectbox(
-                "Color B", COLOR_PRESET_LABELS,
-                index=COLOR_PRESET_LABELS.index(label_for_color(cur_b)),
-                key=f"mtbcsel{i}",
-            )
-            if label_b == CUSTOM_COLOR_LABEL:
-                m["team_b_color"] = c4.color_picker("Custom B", cur_b, key=f"mtbc{i}")
-            else:
-                m["team_b_color"] = TEAM_COLORS[label_b]
+            m["team_b"] = c2.text_input("Team B", m.get("team_b", ""), key=f"mtb{i}")
 
             m["note_mm"] = st.text_input("Note (Burmese, optional)", m.get("note_mm", ""), key=f"mnotemm{i}")
             m["note_zh"] = st.text_input("Note (Chinese, optional)", m.get("note_zh", ""), key=f"mnotezh{i}")
-
-            m["postponed"] = st.checkbox(
-                "🌧️ Postponed / rain delay (shows a red badge on the site)",
-                m.get("postponed", False), key=f"postponed_m{i}"
-            )
 
     st.divider()
     add_col1, add_col2 = st.columns(2)
@@ -599,8 +527,7 @@ with tab_fixtures:
         add_doc("matches", {
             "sport_key": add_sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
             "date": "", "time": "", "team_a": "", "team_b": "",
-            "team_a_color": "#7fb3c0", "team_b_color": "#c45a48",
-            "note_mm": "", "note_zh": "", "postponed": False,
+            "note_mm": "", "note_zh": "",
         })
         st.rerun()
 
@@ -608,44 +535,12 @@ with tab_fixtures:
         save_collection_order("matches", matches)
         st.success("Saved — live site will update within a couple seconds.")
 
-    # (TEAM_COLORS and resolve_team_color are already defined above, near the
-    # manual color-preset picker — reused here for bulk import auto-color.)
-
-    # Accepts either the English column names the importer originally used,
-    # or the Burmese headers from the Numbers fixtures template — so Chaw Su
-    # can export straight from Numbers without renaming columns first.
-    COLUMN_ALIASES = {
-        "date": ["date", "ရက်စွဲ"],
-        "time": ["time", "အချိန်"],
-        "team_1": ["team_1", "team1", "အသင်း a", "အသင်း-a"],
-        "team_2": ["team_2", "team2", "အသင်း b", "အသင်း-b"],
-        "note_mm": ["note_mm", "မှတ်ချက်", "ပွဲအမျိုးအစား"],
-        "note_zh": ["note_zh"],
-        "sport": ["sport"],
-    }
-
-    def get_col(row, cols_lower, field):
-        for alias in COLUMN_ALIASES[field]:
-            if alias in cols_lower:
-                return row[cols_lower[alias]]
-        return None
-
     st.divider()
     with st.expander("📥 Bulk import from Excel", expanded=bool(st.session_state.get("fixture_import_msg"))):
         st.caption(
-            "Upload a .xlsx file with columns: date, time, team_1, team_2, "
-            "note_mm (optional), note_zh (optional) — Burmese headers from the "
-            "Numbers template (ရက်စွဲ / အချိန် / အသင်း A / အသင်း B) also work. "
-            "Team colors are filled in automatically from the township name. "
-            "For two matches on the same day, add two rows with the same date "
-            "but a different time (e.g. 9:00 AM and 4:00 PM)."
-        )
-        import_sport = st.selectbox(
-            "Sport for this file (used for every row, unless the file has its "
-            "own 'sport' column)",
-            list(SPORT_OPTIONS.keys()),
-            format_func=lambda k: f"{SPORT_OPTIONS[k][0]} {SPORT_OPTIONS[k][1]}",
-            key="bulk_import_sport",
+            "Upload a .xlsx file with columns: sport, date, time, team_1, team_2, "
+            "note_mm (optional), note_zh (optional). sport must be exactly "
+            "'football', 'volleyball', or 'basketball'. Each row becomes one match."
         )
 
         # Show the result of the last import — persisted across the rerun that
@@ -668,49 +563,74 @@ with tab_fixtures:
                 st.error(f"Couldn't read that file: {e}")
                 df = None
             if df is not None:
-                cols_lower = {str(c).strip().lower(): c for c in df.columns}
-
-                def clean(val):
-                    return "" if val is None or pd.isna(val) else str(val).strip()
-
                 imported, skipped = 0, 0
                 for _, row in df.iterrows():
-                    sport_raw = get_col(row, cols_lower, "sport")
-                    sport = clean(sport_raw).lower() if sport_raw is not None else ""
+                    sport = str(row.get("sport", "")).strip().lower()
                     if sport not in SPORT_OPTIONS:
-                        sport = import_sport  # no per-row sport column — use the picker above
-                    emoji, mm, zh = SPORT_OPTIONS[sport]
-
-                    team_a_val = clean(get_col(row, cols_lower, "team_1"))
-                    time_val = clean(get_col(row, cols_lower, "time"))
-                    # Rest Day rows (team_1 starts with "Rest Day", or time
-                    # is a placeholder "-") aren't real matches — skip them
-                    # so they don't show up as a match card.
-                    if team_a_val.startswith("Rest Day") or time_val == "-" or not team_a_val:
                         skipped += 1
                         continue
+                    emoji, mm, zh = SPORT_OPTIONS[sport]
 
-                    team_b_val = clean(get_col(row, cols_lower, "team_2"))
+                    def clean(val):
+                        return "" if pd.isna(val) else str(val).strip()
+
                     add_doc("matches", {
                         "sport_key": sport, "sport_emoji": emoji, "sport_mm": mm, "sport_zh": zh,
-                        "date": clean(get_col(row, cols_lower, "date")),
-                        "time": time_val,
-                        "team_a": team_a_val,
-                        "team_b": team_b_val,
-                        "team_a_color": resolve_team_color(team_a_val, "#7fb3c0"),
-                        "team_b_color": resolve_team_color(team_b_val, "#c45a48"),
-                        "note_mm": clean(get_col(row, cols_lower, "note_mm")),
-                        "note_zh": clean(get_col(row, cols_lower, "note_zh")),
-                        "postponed": False,
+                        "date": clean(row.get("date", "")),
+                        "time": clean(row.get("time", "")),
+                        "team_a": clean(row.get("team_1", "")),
+                        "team_b": clean(row.get("team_2", "")),
+                        "note_mm": clean(row.get("note_mm", "")),
+                        "note_zh": clean(row.get("note_zh", "")),
                     })
                     imported += 1
                 msg = f"Imported {imported} match(es)."
                 if skipped:
-                    msg += f" Skipped {skipped} row(s) (Rest Day or missing team name)."
+                    msg += f" Skipped {skipped} row(s) with an unrecognized 'sport' value."
                 st.session_state["fixture_import_msg"] = msg
                 # Force the uploader to reset to empty on the next run.
                 st.session_state["fixture_uploader_gen"] = st.session_state.get("fixture_uploader_gen", 0) + 1
                 st.rerun()
+
+# ---------- TEAMS TAB ----------
+with tab_teams:
+    st.subheader("Teams (နာမည် + အရောင်)")
+    st.caption(
+        "Set each team's color once here — every score card and fixture "
+        "chip for that team picks it up automatically, everywhere on the "
+        "site, no need to set it per match."
+    )
+
+    teams = load_collection("teams")
+
+    for i, t in enumerate(teams):
+        c1, c2 = st.columns([2, 1])
+        t["name"] = c1.text_input("Team name", t.get("name", ""), key=f"teamname{i}")
+        t["color"] = c2.color_picker("Color", t.get("color", "#7fb3c0"), key=f"teamcolor{i}")
+
+        text_color = "#121c16" if _is_light(t["color"]) else "#f2efe6"
+        st.markdown(
+            f'<div style="width:100%;max-width:280px;min-height:60px;'
+            f'border-radius:8px;background:{t["color"]};color:{text_color};'
+            f'display:flex;align-items:center;justify-content:center;'
+            f'font-weight:700;text-align:center;padding:10px 14px;'
+            f'white-space:normal;word-break:break-word;line-height:1.3;'
+            f'margin-bottom:8px;">{t["name"] or "?"}</div>',
+            unsafe_allow_html=True,
+        )
+
+        if st.button("🗑 Delete this team", key=f"teamdel{i}"):
+            delete_doc("teams", t["_id"])
+            st.rerun()
+        st.divider()
+
+    if st.button("➕ Add new team"):
+        add_doc("teams", {"name": "", "color": "#7fb3c0"})
+        st.rerun()
+
+    if teams and st.button("💾 Save team changes", type="primary", key="save_teams"):
+        save_collection_order("teams", teams)
+        st.success("Saved — live site will update within a couple seconds.")
 
 # ---------- GALLERY TAB ----------
 with tab_gallery:
@@ -790,89 +710,6 @@ with tab_gallery:
             doc_id = item["_id"]
             payload = {k: v for k, v in item.items() if k != "_id"}
             db.collection("gallery").document(doc_id).set(payload, merge=True)
-        st.success("Saved.")
-
-# ---------- AUDIO TAB ----------
-with tab_audio:
-    st.subheader("Live audio commentary")
-    st.caption(
-        f"Upload MP3/M4A/WAV clips — they stream straight to Cloudinary and "
-        f"appear as playable clips on the site's Audio section immediately. "
-        f"Keep files under ~{MAX_UPLOAD_MB}MB."
-    )
-
-    audio_uploads = st.file_uploader(
-        "Upload audio clip(s)",
-        type=sorted(e.strip(".") for e in AUDIO_EXTS),
-        accept_multiple_files=True,
-        key="audio_uploader",
-    )
-    if audio_uploads:
-        if st.button(f"➕ Add {len(audio_uploads)} clip(s)"):
-            added = 0
-            for f in audio_uploads:
-                size_mb = f.size / (1024 * 1024)
-                if size_mb > MAX_UPLOAD_MB:
-                    st.warning(f"Skipped {f.name} — {size_mb:.1f}MB is over the {MAX_UPLOAD_MB}MB guideline.")
-                    continue
-                public_url, public_id, kind = save_upload_to_storage(f, folder="audio")
-                if kind != "audio":
-                    st.warning(f"Skipped {f.name} — unsupported file type.")
-                    continue
-                add_doc("audio", {
-                    "src": public_url,
-                    "public_id": public_id,
-                    "who_mm": "",
-                    "who_zh": "",
-                    "what_mm": "",
-                    "what_zh": "",
-                    "uploadedAt": firestore.SERVER_TIMESTAMP,
-                }, order_hint=0)
-                added += 1
-            st.success(f"Added {added} clip(s). Scroll down to fill in the labels.")
-            st.rerun()
-
-    st.divider()
-    audio_clips = load_collection("audio")
-    st.markdown(f"**Audio clips ({len(audio_clips)})**")
-
-    for ai, item in enumerate(audio_clips):
-        with st.expander(
-            f"🎙 {item.get('what_mm') or item.get('src', '(missing file)')}",
-            expanded=False,
-        ):
-            st.audio(item.get("src", ""))
-
-            c1, c2 = st.columns(2)
-            item["who_mm"] = c1.text_input(
-                "Who / label line (Burmese)", item.get("who_mm", ""), key=f"awmm{ai}"
-            )
-            item["who_zh"] = c2.text_input(
-                "Who / label line (Chinese)", item.get("who_zh", ""), key=f"awzh{ai}"
-            )
-
-            c1, c2 = st.columns(2)
-            item["what_mm"] = c1.text_input(
-                "Clip title (Burmese)", item.get("what_mm", ""), key=f"atmm{ai}"
-            )
-            item["what_zh"] = c2.text_input(
-                "Clip title (Chinese)", item.get("what_zh", ""), key=f"atzh{ai}"
-            )
-
-            if st.button("🗑 Delete this clip (and its file)", key=f"adel{ai}"):
-                public_id = item.get("public_id")
-                try:
-                    delete_from_cloudinary(public_id, "audio")
-                except Exception:
-                    pass
-                delete_doc("audio", item["_id"])
-                st.rerun()
-
-    if audio_clips and st.button("💾 Save audio labels"):
-        for item in audio_clips:
-            doc_id = item["_id"]
-            payload = {k: v for k, v in item.items() if k != "_id"}
-            db.collection("audio").document(doc_id).set(payload, merge=True)
         st.success("Saved.")
 
 # ---------- BRANDING TAB ----------
@@ -1020,7 +857,7 @@ with st.expander("Raw data (advanced, read-only preview)"):
         "standings": load_collection("standings"),
         "schedule": load_collection("schedule"),
         "matches": load_collection("matches"),
+        "teams": load_collection("teams"),
         "gallery": load_collection("gallery"),
-        "audio": load_collection("audio"),
         "branding": load_branding(),
     })
