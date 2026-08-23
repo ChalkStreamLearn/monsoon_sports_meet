@@ -1142,7 +1142,8 @@
     });
   };
 
-  // Points: win=3, draw=1, loss=0. Teams are ranked by points, then wins, then name.
+  // Points: win=3, draw=1, loss=0. Teams are ranked by points, then goal
+  // difference (GF - GA), then goals for, then wins, then name.
   // "Qualify count" = how many teams from the group advance to the semi-finals.
   // "total_rounds" = total group-stage matches each team plays; used to work out
   // whether a team can still mathematically catch the last qualifying spot.
@@ -1152,10 +1153,13 @@
     wrap.innerHTML = standings.map(group => {
       const rows = group.teams.map(t => {
         const points = t.won * 3 + (t.draw || 0);
+        const gf = t.gf || 0;
+        const ga = t.ga || 0;
+        const gd = gf - ga;
         const remaining = Math.max(0, (group.total_rounds || t.played) - t.played);
         const maxPoints = points + remaining * 3;
-        return {...t, points, maxPoints};
-      }).sort((a, b) => b.points - a.points || b.won - a.won || a.team.localeCompare(b.team));
+        return {...t, points, gf, ga, gd, maxPoints};
+      }).sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf || b.won - a.won || a.team.localeCompare(b.team));
 
       const qualifyCount = group.qualify_count || 2;
       const cutoff = rows.length >= qualifyCount ? rows[qualifyCount - 1].points : -Infinity;
@@ -1179,6 +1183,9 @@
           <td>${t.won}</td>
           <td>${t.draw || 0}</td>
           <td>${t.lost}</td>
+          <td>${t.gf}</td>
+          <td>${t.ga}</td>
+          <td>${t.gd > 0 ? '+' + t.gd : t.gd}</td>
           <td class="pts">${t.points}</td>
           <td><span class="status-badge ${statusClass}"><span data-mm>${statusMm}</span><span data-zh>${statusZh}</span></span></td>
         </tr>`;
@@ -1200,6 +1207,9 @@
                 <th title="Won">W</th>
                 <th title="Draw">D</th>
                 <th title="Lost">L</th>
+                <th title="Goals For">GF</th>
+                <th title="Goals Against">GA</th>
+                <th title="Goal Difference">GD</th>
                 <th><span data-mm>ရမှတ်</span><span data-zh>积分</span></th>
                 <th><span data-mm>အခြေအနေ</span><span data-zh>形势</span></th>
               </tr>
