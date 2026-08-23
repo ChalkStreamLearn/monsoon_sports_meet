@@ -290,6 +290,7 @@ with tab_standings:
     st.subheader("Points table & semi-final race")
     st.caption(
         "Points are calculated automatically (Win = 3, Draw = 1, Loss = 0). "
+        "Ties are broken by goal difference (GF - GA), then goals for. "
         "'Total group rounds' is how many group-stage matches each team plays in "
         "total — it's used to work out whether a team can still mathematically "
         "catch the last qualifying spot."
@@ -340,10 +341,11 @@ with tab_standings:
             )
 
             st.markdown("**Teams**")
+            st.caption("GF = goals for, GA = goals against. Used to break points ties (GD, then GF).")
             teams = group.setdefault("teams", [])
             for ti, t in enumerate(teams):
-                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(
-                    [1.8, 0.9, 0.9, 0.9, 0.9, 0.5, 0.5, 0.5]
+                c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+                    [1.6, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7, 0.5, 0.5, 0.5]
                 )
                 t["team"] = c1.text_input("Team", t.get("team", ""), key=f"t{gi}_{ti}_name")
                 t["played"] = c2.number_input(
@@ -358,21 +360,27 @@ with tab_standings:
                 t["lost"] = c5.number_input(
                     "L", min_value=0, value=int(t.get("lost", 0)), key=f"t{gi}_{ti}_l"
                 )
-                if c6.button("⬆️", key=f"t{gi}_{ti}_up", disabled=(ti == 0)):
+                t["gf"] = c6.number_input(
+                    "GF", min_value=0, value=int(t.get("gf", 0)), key=f"t{gi}_{ti}_gf"
+                )
+                t["ga"] = c7.number_input(
+                    "GA", min_value=0, value=int(t.get("ga", 0)), key=f"t{gi}_{ti}_ga"
+                )
+                if c8.button("⬆️", key=f"t{gi}_{ti}_up", disabled=(ti == 0)):
                     teams[ti - 1], teams[ti] = teams[ti], teams[ti - 1]
                     save_collection_order("standings", standings)
                     st.rerun()
-                if c7.button("⬇️", key=f"t{gi}_{ti}_down", disabled=(ti == len(teams) - 1)):
+                if c9.button("⬇️", key=f"t{gi}_{ti}_down", disabled=(ti == len(teams) - 1)):
                     teams[ti + 1], teams[ti] = teams[ti], teams[ti + 1]
                     save_collection_order("standings", standings)
                     st.rerun()
-                if c8.button("🗑", key=f"t{gi}_{ti}_del"):
+                if c10.button("🗑", key=f"t{gi}_{ti}_del"):
                     teams.pop(ti)
                     save_collection_order("standings", standings)
                     st.rerun()
 
             if st.button("➕ Add team", key=f"addteam{gi}"):
-                teams.append({"team": "", "played": 0, "won": 0, "draw": 0, "lost": 0})
+                teams.append({"team": "", "played": 0, "won": 0, "draw": 0, "lost": 0, "gf": 0, "ga": 0})
                 save_collection_order("standings", standings)
                 st.rerun()
 
